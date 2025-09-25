@@ -25,20 +25,20 @@ export const HarmBlockThreshold = {
 
 /**
  * @typedef {{
- *   role: string,
- *   parts: Array<{
- *     text?: string,
- *     functionCall?: FunctionCall,
- *     functionResponse?: FunctionResponse,
- *     executableCode?: {
- *       language: string,
- *       code: string
- *     },
- *     codeExecutionResult?: {
- *       outcome: string,
- *       output: string
- *     }
- *   }>
+ * role: string,
+ * parts: Array<{
+ * text?: string,
+ * functionCall?: FunctionCall,
+ * functionResponse?: FunctionResponse,
+ * executableCode?: {
+ * language: string,
+ * code: string
+ * },
+ * codeExecutionResult?: {
+ * outcome: string,
+ * output: string
+ * }
+ * }>
  * }} Content
  *
  * Gemini消息的基本格式
@@ -46,24 +46,24 @@ export const HarmBlockThreshold = {
 
 /**
  * @typedef {{
- *   searchEntryPoint: {
- *     renderedContent: string,
- *   },
- *   groundingChunks: Array<{
- *     web: {
- *       uri: string,
- *       title: string
- *     }
- *   }>,
- *   webSearchQueries: Array<string>
+ * searchEntryPoint: {
+ * renderedContent: string,
+ * },
+ * groundingChunks: Array<{
+ * web: {
+ * uri: string,
+ * title: string
+ * }
+ * }>,
+ * webSearchQueries: Array<string>
  * }} GroundingMetadata
  * 搜索结果的元数据
  */
 
 /**
  * @typedef {{
- *    name: string,
- *    args: {}
+ * name: string,
+ * args: {}
  * }} FunctionCall
  *
  * Gemini的FunctionCall
@@ -71,11 +71,11 @@ export const HarmBlockThreshold = {
 
 /**
  * @typedef {{
- *   name: string,
- *   response: {
- *     name: string,
- *     content: {}
- *   }
+ * name: string,
+ * response: {
+ * name: string,
+ * content: {}
+ * }
  * }} FunctionResponse
  *
  * Gemini的Function执行结果包裹
@@ -95,59 +95,38 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
    *
    * @param text
    * @param {{
-   *     conversationId: string?,
-   *     parentMessageId: string?,
-   *     stream: boolean?,
-   *     onProgress: function?,
-   *     functionResponse?: FunctionResponse | FunctionResponse[],
-   *     system: string?,
-   *     image: string?,
-   *     maxOutputTokens: number?,
-   *     temperature: number?,
-   *     topP: number?,
-   *     tokK: number?,
-   *     replyPureTextCallback: Function,
-   *     toolMode: 'AUTO' | 'ANY' | 'NONE'
-   *     search: boolean,
-   *     codeExecution: boolean,
+   * conversationId: string?,
+   * parentMessageId: string?,
+   * stream: boolean?,
+   * onProgress: function?,
+   * functionResponse?: FunctionResponse | FunctionResponse[],
+   * system: string?,
+   * image: string?,
+   * maxOutputTokens: number?,
+   * temperature: number?,
+   * topP: number?,
+   * tokK: number?,
+   * replyPureTextCallback: Function,
+   * toolMode: 'AUTO' | 'ANY' | 'NONE'
+   * search: boolean,
+   * codeExecution: boolean,
    * }} opt
    * @param {number} retryTime 重试次数
    * @returns {Promise<{conversationId: string?, parentMessageId: string, text: string, id: string}>}
    */
   async sendMessage (text, opt = {}, retryTime = 3) {
+    const isProxy = this.baseUrl && this.baseUrl.includes('api.chatanywhere.tech')
+
     let history = await this.getHistory(opt.parentMessageId)
     let systemMessage = opt.system
-    // if (systemMessage) {
-    //   history = history.reverse()
-    //   history.push({
-    //     role: 'model',
-    //     parts: [
-    //       {
-    //         text: 'ok'
-    //       }
-    //     ]
-    //   })
-    //   history.push({
-    //     role: 'user',
-    //     parts: [
-    //       {
-    //         text: systemMessage
-    //       }
-    //     ]
-    //   })
-    //   history = history.reverse()
-    // }
     const idThis = crypto.randomUUID()
     const idModel = crypto.randomUUID()
-    if (opt.functionResponse && !typeof Array.isArray(opt.functionResponse)) {
+    if (opt.functionResponse && !Array.isArray(opt.functionResponse)) {
       opt.functionResponse = [opt.functionResponse]
     }
     const thisMessage = opt.functionResponse?.length > 0
       ? {
           role: 'user',
-          // parts: [{
-          //   functionResponse: opt.functionResponse
-          // }],
           parts: opt.functionResponse.map(i => {
             return {
               functionResponse: i
@@ -171,167 +150,208 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       })
     }
     history.push(_.cloneDeep(thisMessage))
-    let url = `${this.baseUrl}/v1beta/models/${this.model}:generateContent`
-    let body = {
-      // 不去兼容官方的简单格式了，直接用，免得function还要转换
-      /**
-       * @type Array<Content>
-       */
-      contents: history,
-      safetySettings: [
-        {
-          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-          threshold: HarmBlockThreshold.OFF
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-          threshold: HarmBlockThreshold.OFF
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-          threshold: HarmBlockThreshold.OFF
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-          threshold: HarmBlockThreshold.OFF
-        },
-        {
-          category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY,
-          threshold: HarmBlockThreshold.BLOCK_NONE
-        }
-      ],
-      generationConfig: {
-        maxOutputTokens: opt.maxOutputTokens || 4096,
-        temperature: opt.temperature || 0.9,
-        topP: opt.topP || 0.95,
-        topK: opt.tokK || 16
-      },
-      tools: []
-    }
-    if (systemMessage) {
-      body.system_instruction = {
-        parts: {
-          text: systemMessage
-        }
-      }
-    }
-    if (this.tools?.length > 0) {
-      body.tools.push({
-        function_declarations: this.tools.map(tool => tool.function())
-        // codeExecution: {}
-      })
 
-      // ANY要笑死人的效果
-      let mode = opt.toolMode || 'AUTO'
-      let lastFuncName = (/** @type {FunctionResponse[] | undefined}**/ opt.functionResponse)?.map(rsp => rsp.name)
-      const mustSendNextTurn = [
-        'searchImage', 'searchMusic', 'searchVideo'
-      ]
-      if (lastFuncName && lastFuncName?.find(name => mustSendNextTurn.includes(name))) {
-        mode = 'ANY'
+    let url
+    let body
+    let headers
+
+    if (isProxy) {
+      // --- 代理 API 逻辑 (OpenAI 格式) ---
+      url = `${this.baseUrl}/v1/chat/completions`
+      headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this._key}`
       }
-      // 防止死循环。
-      delete opt.toolMode
-      body.tool_config = {
-        function_calling_config: {
-          mode
+
+      const messages = []
+      // 1. 系统指令
+      if (systemMessage) {
+        messages.push({ role: 'system', content: systemMessage })
+      }
+
+      // 2. 转换历史记录和当前消息
+      for (const geminiMsg of history) {
+        const role = geminiMsg.role === 'model' ? 'assistant' : 'user'
+        const content = convertGeminiPartsToOpenAIContent(geminiMsg.parts)
+        if (content) { // 避免添加空内容的消息
+          messages.push({ role, content })
         }
       }
+
+      // 3. 构建请求体
+      body = {
+        model: this.model,
+        messages,
+        temperature: opt.temperature || 0.9,
+        max_tokens: opt.maxOutputTokens || 4096,
+        top_p: opt.topP || 0.95
+      }
+
+      // 4. 工具 (Function Calling)
+      if (this.tools?.length > 0 && !opt.image) {
+        body.tools = this.tools.map(tool => ({
+          type: 'function',
+          function: tool.function()
+        }))
+        // 映射 toolMode 到 tool_choice
+        if (opt.toolMode && opt.toolMode !== 'AUTO') {
+          body.tool_choice = opt.toolMode === 'NONE' ? 'none' : 'auto'
+        }
+      }
+    } else {
+      // --- 原生 Gemini API 逻辑 ---
+      url = `${this.baseUrl}/v1beta/models/${this.model}:generateContent`
+      headers = {
+        'x-goog-api-key': this._key
+      }
+      body = {
+        contents: history,
+        safetySettings: [
+          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.OFF },
+          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.OFF },
+          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.OFF },
+          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.OFF },
+          { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.BLOCK_NONE }
+        ],
+        generationConfig: {
+          maxOutputTokens: opt.maxOutputTokens || 4096,
+          temperature: opt.temperature || 0.9,
+          topP: opt.topP || 0.95,
+          topK: opt.tokK || 16
+        },
+        tools: []
+      }
+      if (systemMessage) {
+        body.system_instruction = { parts: { text: systemMessage } }
+      }
+      if (this.tools?.length > 0) {
+        body.tools.push({ function_declarations: this.tools.map(tool => tool.function()) })
+        let mode = opt.toolMode || 'AUTO'
+        const lastFuncName = (/** @type {FunctionResponse[] | undefined}**/ opt.functionResponse)?.map(rsp => rsp.name)
+        const mustSendNextTurn = ['searchImage', 'searchMusic', 'searchVideo']
+        if (lastFuncName && lastFuncName?.find(name => mustSendNextTurn.includes(name))) {
+          mode = 'ANY'
+        }
+        delete opt.toolMode
+        body.tool_config = { function_calling_config: { mode } }
+      }
+      if (opt.search) {
+        body.tools.push({ google_search: {} })
+      }
+      if (opt.codeExecution) {
+        body.tools.push({ code_execution: {} })
+      }
+      if (opt.image) {
+        delete body.tools
+      }
+      body.contents.forEach(content => {
+        delete content.id
+        delete content.parentMessageId
+        delete content.conversationId
+      })
     }
-    if (opt.search) {
-      body.tools.push({ google_search: {} })
-    }
-    if (opt.codeExecution) {
-      body.tools.push({ code_execution: {} })
-    }
-    if (opt.image) {
-      delete body.tools
-    }
-    body.contents.forEach(content => {
-      delete content.id
-      delete content.parentMessageId
-      delete content.conversationId
-    })
+
     if (this.debug) {
-      logger.debug(JSON.stringify(body))
+      logger.debug(`Request Body to ${url}: ${JSON.stringify(body)}`)
     }
+
     let result = await newFetch(url, {
       method: 'POST',
       body: JSON.stringify(body),
-      headers: {
-        'x-goog-api-key': this._key
-      }
+      headers
     })
+
     if (result.status !== 200) {
-      throw new Error(await result.text())
+      throw new Error(`API request failed with status ${result.status}: ${await result.text()}`)
     }
-    /**
-     * @type {Content | undefined}
-     */
+
+    /** @type {Content | undefined} */
     let responseContent
-    /**
-     * @type {{candidates: Array<{content: Content, groundingMetadata: GroundingMetadata, finishReason: string}>}}
-     */
-    let response = await result.json()
-    if (this.debug) {
-      console.log(JSON.stringify(response))
+    let groundingMetadata // 仅 Gemini 原生 API 支持
+
+    if (isProxy) {
+      // --- 解析代理 (OpenAI 格式) 响应 ---
+      const response = await result.json()
+      if (this.debug) {
+        console.log('Proxy Response:', JSON.stringify(response))
+      }
+      if (response.error) {
+        throw new Error(JSON.stringify(response.error))
+      }
+      if (!response.choices || response.choices.length === 0) {
+        // 无内容回复，可在此处添加重试逻辑
+        throw new Error('Proxy API returned no choices.')
+      }
+      const message = response.choices[0].message
+      responseContent = {
+        role: 'model',
+        parts: []
+      }
+      if (message.content) {
+        responseContent.parts.push({ text: message.content })
+      }
+      if (message.tool_calls) {
+        for (const toolCall of message.tool_calls) {
+          try {
+            responseContent.parts.push({
+              functionCall: {
+                name: toolCall.function.name,
+                args: JSON.parse(toolCall.function.arguments)
+              }
+            })
+          } catch (e) {
+            logger.error(`Failed to parse tool call arguments from proxy: ${e}`)
+          }
+        }
+      }
+    } else {
+      // --- 解析原生 Gemini 响应 ---
+      /** @type {{candidates: Array<{content: Content, groundingMetadata: GroundingMetadata, finishReason: string}>}} */
+      let response = await result.json()
+      if (this.debug) {
+        console.log('Gemini Response:', JSON.stringify(response))
+      }
+      if (!response.candidates || response.candidates.length === 0) {
+        // 无内容回复，可在此处添加重试逻辑
+        throw new Error('Gemini API returned no candidates.')
+      }
+      responseContent = response.candidates[0].content
+      groundingMetadata = response.candidates[0].groundingMetadata
+      if (response.candidates[0].finishReason === 'MALFORMED_FUNCTION_CALL' && retryTime > 0) {
+        logger.warn('Encountered MALFORMED_FUNCTION_CALL, retrying.')
+        return this.sendMessage(text, opt, retryTime - 1)
+      }
     }
-    responseContent = response.candidates[0].content
-    let groundingMetadata = response.candidates[0].groundingMetadata
-    if (response.candidates[0].finishReason === 'MALFORMED_FUNCTION_CALL') {
-      logger.warn('遇到MALFORMED_FUNCTION_CALL，进行重试。')
-      return this.sendMessage(text, opt, retryTime--)
-    }
-    // todo 空回复也可以重试
+
+    // --- 后续通用处理逻辑 ---
     if (responseContent.parts.filter(i => i.functionCall).length > 0) {
       // functionCall
       const functionCall = responseContent.parts.filter(i => i.functionCall).map(i => i.functionCall)
       const text = responseContent.parts.find(i => i.text)?.text
       if (text && text.trim()) {
-        // send reply first
         logger.info('send message: ' + text.trim())
         opt.replyPureTextCallback && await opt.replyPureTextCallback(text.trim())
       }
       let /** @type {FunctionResponse[]} **/ fcResults = []
       for (let fc of functionCall) {
-        logger.info(JSON.stringify(fc))
+        logger.info(`Executing function call: ${JSON.stringify(fc)}`)
         const funcName = fc.name
         let chosenTool = this.tools.find(t => t.name === funcName)
-        /**
-         * @type {FunctionResponse}
-         */
-        let functionResponse = {
-          name: funcName,
-          response: {
-            name: funcName,
-            content: null
-          }
-        }
+        let functionResponse = { name: funcName, response: { name: funcName, content: null } }
         if (!chosenTool) {
-          // 根本没有这个工具！
-          functionResponse.response.content = {
-            error: `Function ${funcName} doesn't exist`
-          }
+          functionResponse.response.content = { error: `Function ${funcName} doesn't exist` }
         } else {
-          // execute function
           try {
             let isAdmin = ['admin', 'owner'].includes(this.e.sender.role) || (this.e.group?.is_admin && this.e.isMaster)
             let isOwner = ['owner'].includes(this.e.sender.role) || (this.e.group?.is_owner && this.e.isMaster)
-            let args = Object.assign(fc.args, {
-              isAdmin,
-              isOwner,
-              sender: this.e.sender.user_id,
-              mode: 'gemini'
-            })
+            let args = Object.assign(fc.args, { isAdmin, isOwner, sender: this.e.sender.user_id, mode: 'gemini' })
             functionResponse.response.content = await chosenTool.func(args, this.e)
             if (this.debug) {
-              logger.info(JSON.stringify(functionResponse.response.content))
+              logger.info(`Function result: ${JSON.stringify(functionResponse.response.content)}`)
             }
           } catch (err) {
             logger.error(err)
-            functionResponse.response.content = {
-              error: `Function execute error: ${err.message}`
-            }
+            functionResponse.response.content = { error: `Function execute error: ${err.message}` }
           }
         }
         fcResults.push(functionResponse)
@@ -339,23 +359,15 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       let responseOpt = _.cloneDeep(opt)
       responseOpt.parentMessageId = idModel
       responseOpt.functionResponse = fcResults
-      // 递归直到返回text
-      // 先把这轮的消息存下来
       await this.upsertMessage(thisMessage)
       responseContent = handleSearchResponse(responseContent).responseContent
-      const respMessage = Object.assign(responseContent, {
-        id: idModel,
-        parentMessageId: idThis
-      })
+      const respMessage = Object.assign(responseContent, { id: idModel, parentMessageId: idThis })
       await this.upsertMessage(respMessage)
       return await this.sendMessage('', responseOpt)
     }
     if (responseContent) {
       await this.upsertMessage(thisMessage)
-      const respMessage = Object.assign(responseContent, {
-        id: idModel,
-        parentMessageId: idThis
-      })
+      const respMessage = Object.assign(responseContent, { id: idModel, parentMessageId: idThis })
       await this.upsertMessage(respMessage)
     }
     let { final } = handleSearchResponse(responseContent)
@@ -363,7 +375,6 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       if (groundingMetadata?.groundingChunks) {
         final += '\n参考资料\n'
         groundingMetadata.groundingChunks.forEach(chunk => {
-          // final += `[${chunk.web.title}](${chunk.web.uri})\n`
           final += `[${chunk.web.title}]\n`
         })
         groundingMetadata.webSearchQueries.forEach(q => {
@@ -377,9 +388,62 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
     return {
       text: final,
       conversationId: '',
-      parentMessageId: idThis,
+      parentMessageId: idModel, //  parentMessageId 应该返回模型消息的 id，下一轮基于此回复
       id: idModel
     }
+  }
+}
+
+/**
+ * 将 Gemini 的 'parts' 数组转换为 OpenAI 的 'content' 格式。
+ * 处理文本、多模态图像和函数响应。
+ * @param {Array<object>} parts - 来自 Gemini 消息的 'parts' 数组。
+ * @returns {string|Array<object>|null} - 用于 OpenAI 消息的 'content'。
+ */
+function convertGeminiPartsToOpenAIContent (parts) {
+  if (!parts || parts.length === 0) {
+    return null
+  }
+
+  // 首先检查函数响应，因为它们是一种特殊的消息类型
+  const functionResponsePart = parts.find(p => p.functionResponse)
+  if (functionResponsePart) {
+    // 将函数响应表示为简单的文本字符串，供 LLM 理解。
+    // 这避免了如果代理不能完美处理 'tool' 角色的复杂性。
+    const funcResp = functionResponsePart.functionResponse
+    return `Result for function call ${funcResp.name}: ${JSON.stringify(funcResp.response.content)}`
+  }
+
+  let textParts = []
+  let imageParts = []
+
+  // 处理文本和图像
+  for (const part of parts) {
+    if (part.text) {
+      textParts.push(part.text)
+    }
+    if (part.inline_data && part.inline_data.data) {
+      imageParts.push({
+        type: 'image_url',
+        image_url: {
+          // 对于 OpenAI 格式，必须前缀 data URI scheme
+          url: `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`
+        }
+      })
+    }
+  }
+
+  const combinedText = textParts.join('\n')
+
+  if (imageParts.length > 0) {
+    const contentArray = []
+    if (combinedText) {
+      contentArray.push({ type: 'text', text: combinedText })
+    }
+    contentArray.push(...imageParts)
+    return contentArray
+  } else {
+    return combinedText || null
   }
 }
 
@@ -425,4 +489,5 @@ function handleSearchResponse (responseContent) {
     final,
     responseContent
   }
+}
 }
