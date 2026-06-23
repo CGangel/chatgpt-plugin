@@ -3,7 +3,7 @@ import { speakers } from './utils/tts.js'
 import { supportConfigurations as azureRoleList } from './utils/tts/microsoft-azure.js'
 import { supportConfigurations as voxRoleList } from './utils/tts/voicevox.js'
 // 支持锅巴
-export function supportGuoba () {
+export function supportGuoba() {
   return {
     // 插件信息，将会显示在前端页面
     // 如果你的插件没有在插件库里，那么需要填上补充信息
@@ -311,10 +311,39 @@ export function supportGuoba () {
           component: 'Divider'
         },
         {
-          field: 'chatglmRefreshToken',
-          label: 'refresh token',
-          bottomHelpMessage: 'chatglm_refresh_token 6个月有效期',
+          field: 'chatglmApiKey',
+          label: '智谱 AI API Key',
+          bottomHelpMessage: '前往 https://open.bigmodel.cn/usercenter/apikeys 获取',
+          component: 'InputPassword'
+        },
+        {
+          field: 'chatglmModel',
+          label: '智谱 AI 模型',
+          bottomHelpMessage: '支持自定义模型名称。常用模型：glm-4.5, glm-4.7-flash, glm-4.7, glm-5',
           component: 'Input'
+        },
+        {
+          field: 'chatglmThinking',
+          label: '智谱 AI 深度思考',
+          bottomHelpMessage: '是否开启思维链深度思考，仅 GLM-4.5 及以上支持',
+          component: 'Switch'
+        },
+        {
+          field: 'chatglmTemperature',
+          label: '智谱 AI 温度',
+          bottomHelpMessage: '控制输出的随机性，值越高越随机。建议 0.0 到 1.0 之间',
+          component: 'InputNumber',
+          componentProps: {
+            min: 0,
+            max: 1,
+            step: 0.1
+          }
+        },
+        {
+          field: 'chatglmPrompt',
+          label: '智谱 AI 设定',
+          bottomHelpMessage: '你可以在这里写入你希望智谱 AI 回答的风格，比如希望优先回答中文，回答短一点等',
+          component: 'InputTextArea'
         },
         {
           label: '以下为Claude API方式的配置',
@@ -520,8 +549,8 @@ export function supportGuoba () {
           field: 'qwenTemperature',
           label: '通义千问温度',
           bottomHelpMessage: '用于控制随机性和多样性的程度。具体来说，temperature值控制了生成文本时对每个候选词的概率分布进行平滑的程度。较高的temperature值会降低概率分布的峰值，使得更多的低概率词被选择，生成结果更加多样化；而较低的temperature值则会增强概率分布的峰值，使得高概率词更容易被选择，生成结果更加确定。\n' +
-              '\n' +
-              '取值范围： (0, 2),系统默认值1.0',
+            '\n' +
+            '取值范围： (0, 2),系统默认值1.0',
           component: 'InputNumber'
         },
         {
@@ -1127,11 +1156,11 @@ export function supportGuoba () {
         }
       ],
       // 获取配置数据方法（用于前端填充显示数据）
-      getConfigData () {
+      getConfigData() {
         return Config
       },
       // 设置配置的方法（前端点确定后调用的方法）
-      setConfigData (data, { Result }) {
+      setConfigData(data, { Result }) {
         for (let [keyPath, value] of Object.entries(data)) {
           // 处理黑名单
           if (keyPath === 'blockWords' || keyPath === 'promptBlockWords' || keyPath === 'initiativeChatGroups') { value = value.toString().split(/[,，;；\|]/) }

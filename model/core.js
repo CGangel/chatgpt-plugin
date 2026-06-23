@@ -124,7 +124,8 @@ class Core {
       claude: Config.claudeSystemPrompt,
       claude2: Config.claudeSystemPrompt,
       gemini: Config.geminiPrompt,
-      xh: Config.xhPrompt
+      xh: Config.xhPrompt,
+      chatglm: Config.chatglmPrompt
     },
     settings: {
       replyPureTextCallback: undefined,
@@ -595,9 +596,14 @@ class Core {
       return await client.sendMessage(prompt, option)
     } else if (use === 'chatglm4') {
       const client = new ChatGLM4Client({
-        refreshToken: Config.chatglmRefreshToken
+        apiKey: Config.chatglmApiKey,
+        model: Config.chatglmModel,
+        thinking: Config.chatglmThinking,
+        temperature: Config.chatglmTemperature,
+        debug: Config.debug
       })
-      let resp = await client.sendMessage(prompt, conversation)
+      let system = await handleSystem(e, opt.system.chatglm, opt.settings)
+      let resp = await client.sendMessage(prompt, { ...conversation, system })
       if (resp.image) {
         this.reply(segment.image(resp.image), true)
       }

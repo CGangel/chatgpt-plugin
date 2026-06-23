@@ -181,7 +181,11 @@ const defaultConfig = {
   geminiTemperature: 0.9,
   geminiMaxOutputTokens: 2000,
 
-  chatglmRefreshToken: '',
+  chatglmApiKey: '',
+  chatglmModel: 'glm-4',
+  chatglmThinking: false,
+  chatglmTemperature: 0.8,
+  chatglmPrompt: 'You are ChatGLM. Your answer shouldn\'t be too verbose. Prefer to answer in Chinese.',
   sunoSessToken: '',
   sunoClientToken: '',
   enableChatSuno: false,
