@@ -14,6 +14,56 @@ const CHATGPT_MODEL = 'gpt-4o-mini'
 const USER_LABEL_DEFAULT = 'User'
 const ASSISTANT_LABEL_DEFAULT = 'ChatGPT'
 
+function normalizeImages (opts: types.SendMessageOptions) {
+    const rawImages = opts.images?.length ? opts.images : (opts.image ? [opts.image] : [])
+    return rawImages
+        .map((image) => {
+            if (typeof image === 'string') {
+                return {
+                    data: image,
+                    mimeType: opts.imageMimeType || 'image/jpeg'
+                }
+            }
+            return {
+                data: image.data || image.base64,
+                url: image.url,
+                mimeType: image.mimeType || image.media_type || opts.imageMimeType || 'image/jpeg'
+            }
+        })
+        .filter(image => image.url || image.data)
+}
+
+function buildMessageContent (text: string, opts: types.SendMessageOptions = {}) {
+    const images = normalizeImages(opts)
+    if (images.length === 0) {
+        return text
+    }
+    const content: any[] = []
+    if (text) {
+        content.push({ type: 'text', text })
+    }
+    content.push(...images.map(image => ({
+        type: 'image_url',
+        image_url: {
+            url: image.url || `data:${image.mimeType};base64,${image.data}`
+        }
+    })))
+    return content
+}
+
+function hasMessageContent (content) {
+    return Array.isArray(content) ? content.length > 0 : !!content
+}
+
+function messageContentToText (content) {
+    if (Array.isArray(content)) {
+        return content
+            .map(part => part.type === 'text' ? part.text : '[image]')
+            .join('\n')
+    }
+    return content || ''
+}
+
 export class ChatGPTAPI {
     protected _apiKey: string
     protected _apiBaseUrl: string
@@ -164,7 +214,10 @@ export class ChatGPTAPI {
             conversationId,
             parentMessageId,
             text,
-            name: opts.name
+            name: opts.name,
+            image: role === 'user' ? opts.image : undefined,
+            imageMimeType: role === 'user' ? opts.imageMimeType : undefined,
+            images: role === 'user' ? opts.images : undefined
         }
 
         const latestQuestion = message
@@ -422,11 +475,12 @@ export class ChatGPTAPI {
         }
 
         const systemMessageOffset = messages.length
-        let nextMessages = text
+        const currentContent = role === 'user' ? buildMessageContent(text, opts) : text
+        let nextMessages = hasMessageContent(currentContent)
             ? messages.concat([
                 {
                     role,
-                    content: text,
+                    content: currentContent,
                     name: opts.name
                 }
             ])
@@ -482,16 +536,16 @@ export class ChatGPTAPI {
                 .reduce((prompt, message) => {
                     switch (message.role) {
                         case 'system':
-                            return prompt.concat([`Instructions:\n${message.content}`])
+                            return prompt.concat([`Instructions:\n${messageContentToText(message.content)}`])
                         case 'user':
-                            return prompt.concat([`${userLabel}:\n${message.content}`])
+                            return prompt.concat([`${userLabel}:\n${messageContentToText(message.content)}`])
                         case 'function':
                             // leave behind
                             return prompt
                         case 'assistant':
                             return prompt
                         default:
-                            return message.content ? prompt.concat([`${assistantLabel}:\n${message.content}`]) : prompt
+                            return message.content ? prompt.concat([`${assistantLabel}:\n${messageContentToText(message.content)}`]) : prompt
                     }
                 }, [] as string[])
                 .join('\n\n')
@@ -529,7 +583,9 @@ export class ChatGPTAPI {
             nextMessages = nextMessages.slice(0, systemMessageOffset).concat([
                 {
                     role: parentMessageRole,
-                    content: parentMessage.text,
+                    content: parentMessageRole === 'user'
+                        ? buildMessageContent(parentMessage.text, parentMessage)
+                        : parentMessage.text,
                     name: parentMessage.name,
                     function_call: parentMessage.functionCall ? parentMessage.functionCall : undefined,
                   // tool_calls: parentMessage.toolCalls ? parentMessage.toolCalls : undefined

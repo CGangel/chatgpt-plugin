@@ -114,6 +114,27 @@ async function handleSystem (e, system, settings) {
   return system
 }
 
+async function getImagePayloads (e) {
+  const imageUrls = await getImg(e)
+  if (!imageUrls?.length) {
+    return []
+  }
+
+  const images = []
+  for (const imageUrl of imageUrls) {
+    const response = await fetch(imageUrl)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image ${imageUrl}: ${response.status}`)
+    }
+    const mimeType = response.headers.get('content-type')?.split(';')[0] || 'image/jpeg'
+    images.push({
+      data: Buffer.from(await response.arrayBuffer()).toString('base64'),
+      mimeType
+    })
+  }
+  return images
+}
+
 class Core {
   async sendMessage (prompt, conversation = {}, use, e, opt = {
     enableSmart: Config.smartMode,
@@ -448,6 +469,10 @@ class Core {
           conversation.conversationId = uuid()
         }
         option = Object.assign(option, conversation)
+      }
+      const images = await getImagePayloads(e)
+      if (images.length > 0) {
+        option.images = images
       }
       if (opt.enableSmart) {
         let isAdmin = ['admin', 'owner'].includes(e.sender.role)

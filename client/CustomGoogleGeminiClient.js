@@ -4,6 +4,33 @@ import { newFetch } from '../utils/proxy.js'
 import _ from 'lodash'
 
 const BASEURL = 'https://generativelanguage.googleapis.com'
+const OFFICIAL_GEMINI_HOST = 'generativelanguage.googleapis.com'
+
+function normalizeBaseUrl (baseUrl) {
+  return (baseUrl || BASEURL).replace(/\/+$/, '')
+}
+
+function isOfficialGeminiUrl (baseUrl) {
+  try {
+    return new URL(baseUrl).hostname === OFFICIAL_GEMINI_HOST
+  } catch (err) {
+    return normalizeBaseUrl(baseUrl).startsWith(BASEURL)
+  }
+}
+
+function buildOpenAIChatCompletionsUrl (baseUrl) {
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl)
+  return normalizedBaseUrl.endsWith('/v1')
+    ? `${normalizedBaseUrl}/chat/completions`
+    : `${normalizedBaseUrl}/v1/chat/completions`
+}
+
+function buildGeminiGenerateContentUrl (baseUrl, model) {
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl)
+  return normalizedBaseUrl.endsWith('/v1') || normalizedBaseUrl.endsWith('/v1beta')
+    ? `${normalizedBaseUrl}/models/${model}:generateContent`
+    : `${normalizedBaseUrl}/v1beta/models/${model}:generateContent`
+}
 
 export const HarmCategory = {
   HARM_CATEGORY_UNSPECIFIED: 'HARM_CATEGORY_UNSPECIFIED',
@@ -29,14 +56,14 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
   constructor (props) {
     super(props)
     this.model = props.model
-    this.baseUrl = props.baseUrl || BASEURL
+    this.baseUrl = normalizeBaseUrl(props.baseUrl)
     this.supportFunction = true
     this.debug = props.debug
   }
 
 
   async sendMessage (text, opt = {}, retryTime = 3) {
-    const isProxy = this.baseUrl && (this.baseUrl.includes('api.chatanywhere.tech') || this.baseUrl.includes('www.packyapi.com'));
+    const isProxy = !isOfficialGeminiUrl(this.baseUrl)
 
     let history = await this.getHistory(opt.parentMessageId)
     let systemMessage = opt.system
@@ -78,7 +105,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
 
     if (isProxy) {
       // --- 代理 API 逻辑 (OpenAI 格式) ---
-      url = `${this.baseUrl}/v1/chat/completions`
+      url = buildOpenAIChatCompletionsUrl(this.baseUrl)
       headers = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this._key}`
@@ -121,7 +148,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       }
     } else {
       // --- 原生 Gemini API 逻辑 ---
-      url = `${this.baseUrl}/v1beta/models/${this.model}:generateContent`
+      url = buildGeminiGenerateContentUrl(this.baseUrl, this.model)
       headers = {
         'x-goog-api-key': this._key
       }

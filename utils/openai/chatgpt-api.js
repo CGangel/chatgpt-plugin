@@ -65,6 +65,53 @@ import { fetchSSE } from './fetch-sse.js';
 var CHATGPT_MODEL = 'gpt-4o-mini';
 var USER_LABEL_DEFAULT = 'User';
 var ASSISTANT_LABEL_DEFAULT = 'ChatGPT';
+function normalizeImages(opts) {
+    var rawImages = (opts.images && opts.images.length) ? opts.images : (opts.image ? [opts.image] : []);
+    return rawImages
+        .map(function (image) {
+        if (typeof image === 'string') {
+            return {
+                data: image,
+                mimeType: opts.imageMimeType || 'image/jpeg'
+            };
+        }
+        return {
+            data: image.data || image.base64,
+            url: image.url,
+            mimeType: image.mimeType || image.media_type || opts.imageMimeType || 'image/jpeg'
+        };
+    })
+        .filter(function (image) { return image.url || image.data; });
+}
+function buildMessageContent(text, opts) {
+    if (opts === void 0) { opts = {}; }
+    var images = normalizeImages(opts);
+    if (images.length === 0) {
+        return text;
+    }
+    var content = [];
+    if (text) {
+        content.push({ type: 'text', text: text });
+    }
+    content.push.apply(content, images.map(function (image) { return ({
+        type: 'image_url',
+        image_url: {
+            url: image.url || "data:".concat(image.mimeType, ";base64,").concat(image.data)
+        }
+    }); }));
+    return content;
+}
+function hasMessageContent(content) {
+    return Array.isArray(content) ? content.length > 0 : !!content;
+}
+function messageContentToText(content) {
+    if (Array.isArray(content)) {
+        return content
+            .map(function (part) { return part.type === 'text' ? part.text : '[image]'; })
+            .join('\n');
+    }
+    return content || '';
+}
 var ChatGPTAPI = /** @class */ (function () {
     /**
      * Creates a new client wrapper around OpenAI's chat completion API, mimicing the official ChatGPT webapp's functionality as closely as possible.
@@ -160,7 +207,10 @@ var ChatGPTAPI = /** @class */ (function () {
                             conversationId: conversationId,
                             parentMessageId: parentMessageId,
                             text: text,
-                            name: opts.name
+                            name: opts.name,
+                            image: role === 'user' ? opts.image : undefined,
+                            imageMimeType: role === 'user' ? opts.imageMimeType : undefined,
+                            images: role === 'user' ? opts.images : undefined
                         };
                         latestQuestion = message;
                         return [4 /*yield*/, this._buildMessages(text, role, opts, completionParams)];
@@ -401,7 +451,7 @@ var ChatGPTAPI = /** @class */ (function () {
     });
     ChatGPTAPI.prototype._buildMessages = function (text, role, opts, completionParams) {
         return __awaiter(this, void 0, void 0, function () {
-            var _a, systemMessage, parentMessageId, userLabel, assistantLabel, maxNumTokens, messages, systemMessageOffset, nextMessages, functionToken, numTokens, prompt_1, nextNumTokensEstimate, _i, _b, m1, _c, isValidPrompt, parentMessage, parentMessageRole, maxTokens;
+            var _a, systemMessage, parentMessageId, userLabel, assistantLabel, maxNumTokens, messages, systemMessageOffset, currentContent, nextMessages, functionToken, numTokens, prompt_1, nextNumTokensEstimate, _i, _b, m1, _c, isValidPrompt, parentMessage, parentMessageRole, maxTokens;
             return __generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
@@ -418,11 +468,12 @@ var ChatGPTAPI = /** @class */ (function () {
                             });
                         }
                         systemMessageOffset = messages.length;
-                        nextMessages = text
+                        currentContent = role === 'user' ? buildMessageContent(text, opts) : text;
+                        nextMessages = hasMessageContent(currentContent)
                             ? messages.concat([
                                 {
                                     role: role,
-                                    content: text,
+                                    content: currentContent,
                                     name: opts.name
                                 }
                             ])
@@ -435,16 +486,16 @@ var ChatGPTAPI = /** @class */ (function () {
                             .reduce(function (prompt, message) {
                             switch (message.role) {
                                 case 'system':
-                                    return prompt.concat(["Instructions:\n".concat(message.content)]);
+                                    return prompt.concat(["Instructions:\n".concat(messageContentToText(message.content))]);
                                 case 'user':
-                                    return prompt.concat(["".concat(userLabel, ":\n").concat(message.content)]);
+                                    return prompt.concat(["".concat(userLabel, ":\n").concat(messageContentToText(message.content))]);
                                 case 'function':
                                     // leave behind
                                     return prompt;
                                 case 'assistant':
                                     return prompt;
                                 default:
-                                    return message.content ? prompt.concat(["".concat(assistantLabel, ":\n").concat(message.content)]) : prompt;
+                                    return message.content ? prompt.concat(["".concat(assistantLabel, ":\n").concat(messageContentToText(message.content))]) : prompt;
                             }
                         }, [])
                             .join('\n\n');
@@ -488,7 +539,9 @@ var ChatGPTAPI = /** @class */ (function () {
                         nextMessages = nextMessages.slice(0, systemMessageOffset).concat(__spreadArray([
                             {
                                 role: parentMessageRole,
-                                content: parentMessage.text,
+                                content: parentMessageRole === 'user'
+                                    ? buildMessageContent(parentMessage.text, parentMessage)
+                                    : parentMessage.text,
                                 name: parentMessage.name,
                                 function_call: parentMessage.functionCall ? parentMessage.functionCall : undefined,
                                 // tool_calls: parentMessage.toolCalls ? parentMessage.toolCalls : undefined

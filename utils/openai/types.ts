@@ -52,6 +52,15 @@ export type SendMessageOptions = {
     completionParams?: Partial<
         Omit<openai.CreateChatCompletionRequest, 'messages' | 'n' | 'stream'>
     >
+    image?: string
+    imageMimeType?: string
+    images?: Array<string | {
+        data?: string
+        base64?: string
+        url?: string
+        mimeType?: string
+        media_type?: string
+    }>
 }
 
 export type MessageActionType = 'next' | 'variant'
@@ -84,6 +93,9 @@ export interface ChatMessage {
     conversationId?: string
     functionCall?: openai.FunctionCall,
     toolCalls?: openai.ToolCall[],
+    image?: string
+    imageMimeType?: string
+    images?: SendMessageOptions['images']
 }
 
 export class ChatGPTError extends Error {
@@ -234,7 +246,15 @@ export namespace openai {
          * @type {string}
          * @memberof ChatCompletionRequestMessage
          */
-        content: string
+        content: string | Array<{
+            type: 'text'
+            text: string
+        } | {
+            type: 'image_url'
+            image_url: {
+                url: string
+            }
+        }>
         /**
          * The name of the user in a multi-user chat
          * @type {string}
