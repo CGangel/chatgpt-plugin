@@ -1,189 +1,146 @@
 import { BaseClient } from './BaseClient.js'
-import https from 'https'
-import { Config } from '../utils/config.js'
+import { newFetch } from '../utils/proxy.js'
 import { createParser } from 'eventsource-parser'
-
-const BASEURL = 'https://chatglm.cn/chatglm/backend-api/assistant/stream'
+import { getMessageById, upsertMessage } from '../utils/history.js'
+import crypto from 'crypto'
 
 export class ChatGLM4Client extends BaseClient {
   constructor (props) {
+    if (!props.upsertMessage) {
+      props.upsertMessage = async (message) => upsertMessage(message, 'ChatGLM4')
+    }
+    if (!props.getMessageById) {
+      props.getMessageById = async (id) => getMessageById(id, 'ChatGLM4')
+    }
     super(props)
-    this.baseUrl = props.baseUrl || BASEURL
-    this.supportFunction = false
+    this.apiKey = props.apiKey
+    this.model = props.model || 'glm-4'
+    this.temperature = props.temperature ?? 0.8
+    this.thinking = !!props.thinking
+    this.baseUrl = props.baseUrl || 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
     this.debug = props.debug
-    this._refreshToken = props.refreshToken
   }
 
-  async getAccessToken (refreshToken = this._refreshToken) {
-    if (redis) {
-      let lastToken = await redis.get('CHATGPT:CHATGLM4_ACCESS_TOKEN')
-      if (lastToken) {
-        this._accessToken = lastToken
-        // todo check token through user info endpoint
-        return
-      }
+  async getHistory (parentMessageId) {
+    const history = []
+    let cursor = parentMessageId
+    while (cursor) {
+      const msg = await this.getMessageById(cursor)
+      if (!msg) break
+      history.push(msg)
+      cursor = msg.parentMessageId
     }
-    let res = await fetch('https://chatglm.cn/chatglm/backend-api/v1/user/refresh', {
-      method: 'POST',
-      body: '{}',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Origin: 'https://www.chatglm.cn',
-        Referer: 'https://www.chatglm.cn/main/detail',
-        Authorization: `Bearer ${refreshToken}`
-      }
-    })
-    let tokenRsp = await res.json()
-    let token = tokenRsp?.result?.accessToken
-    if (token) {
-      this._accessToken = token
-      redis && await redis.set('CHATGPT:CHATGLM4_ACCESS_TOKEN', token, { EX: 7000 })
-      // accessToken will expire in 2 hours
-    }
+    return history.reverse()
   }
 
-  // todo https://chatglm.cn/chatglm/backend-api/v3/user/info query remain times
   /**
-   *
    * @param text
-   * @param {{conversationId: string?, stream: boolean?, onProgress: function?, image: string?}} opt
-   * @returns {Promise<{conversationId: string?, parentMessageId: string?, text: string, id: string, image: string?}>}
+   * @param {{parentMessageId: string?, stream: boolean?, onProgress: function?}} opt
    */
   async sendMessage (text, opt = {}) {
-    await this.getAccessToken()
-    if (!this._accessToken) {
-      throw new Error('accessToken for www.chatglm.cn not set')
+    const { parentMessageId, onProgress, system } = opt
+    const history = await this.getHistory(parentMessageId)
+
+    const messages = []
+    if (system) {
+      messages.push({ role: 'system', content: system })
     }
-    let { conversationId, onProgress } = opt
+
+    messages.push(...history.map(m => ({
+      role: m.role === 'User' ? 'user' : 'assistant',
+      content: m.text || m.content
+    })))
+
+    messages.push({ role: 'user', content: text })
+
+    const idThis = crypto.randomUUID()
+    const thisMessage = {
+      role: 'User',
+      content: text,
+      id: idThis,
+      parentMessageId
+    }
+    await this.upsertMessage(thisMessage)
+
     const body = {
-      assistant_id: '65940acff94777010aa6b796', // chatglm4
-      conversation_id: conversationId || '',
-      meta_data: {
-        is_test: false,
-        input_question_type: 'xxxx',
-        channel: ''
-      },
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text
-            }
-          ]
-        }
-      ]
+      model: this.model,
+      messages,
+      stream: true,
+      temperature: this.temperature
     }
-    let conversationResponse
-    let statusCode
-    let messageId
-    let image
-    let requestP = new Promise((resolve, reject) => {
-      let option = {
-        method: 'POST',
-        headers: {
-          accept: 'text/event-stream',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          authorization: `Bearer ${this._accessToken}`,
-          'content-type': 'application/json',
-          referer: 'https://www.chatglm.cn/main/alltoolsdetail',
-          origin: 'https://www.chatglm.cn',
-          'X-App-Platform': 'pc',
-          'X-App-Version': '0.0.1',
-          'App-Name': 'chatglm',
-          Host: 'chatglm.cn'
-        },
-        referrer: 'https://www.chatglm.cn/main/alltoolsdetail',
-        timeout: 60000
-      }
-      const req = https.request(BASEURL, option, (res) => {
-        statusCode = res.statusCode
-        let response
 
-        function onMessage (data) {
+    // GLM-4.5, 4.7, 5, etc. support thinking
+    const modelNum = parseFloat(this.model.replace(/[^\d.]/g, ''))
+    if (modelNum >= 4.5 || this.model.includes('thinking')) {
+      body.thinking = { type: this.thinking ? 'enabled' : 'disabled' }
+    }
+
+    const response = await newFetch(this.baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`
+      },
+      body: JSON.stringify(body)
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`ChatGLM API error: ${response.status} ${error}`)
+    }
+
+    let fullText = ''
+    let thinking_text = ''
+    let messageId = crypto.randomUUID()
+
+    return new Promise((resolve, reject) => {
+      const parser = createParser((event) => {
+        if (event.type === 'event') {
+          if (event.data === '[DONE]') {
+            const result = {
+              text: fullText,
+              id: messageId,
+              parentMessageId: idThis,
+              conversationId: '',
+              thinking_text: thinking_text
+            }
+            this.upsertMessage({
+              role: 'Assistant',
+              text: fullText,
+              thinking_text: thinking_text,
+              id: messageId,
+              parentMessageId: idThis
+            }).then(() => resolve(result))
+            return
+          }
+
           try {
-            const convoResponseEvent = JSON.parse(data)
-            conversationResponse = convoResponseEvent
-            if (convoResponseEvent.conversation_id) {
-              conversationId = convoResponseEvent.conversation_id
+            const data = JSON.parse(event.data)
+            const delta = data.choices?.[0]?.delta
+            if (delta?.content) {
+              fullText += delta.content
+              if (onProgress) onProgress({ text: fullText })
             }
-
-            if (convoResponseEvent.id) {
-              messageId = convoResponseEvent.id
+            if (delta?.reasoning_content) {
+              thinking_text += delta.reasoning_content
             }
-
-            const partialResponse =
-              convoResponseEvent?.parts?.[0]
-            if (partialResponse) {
-              if (Config.debug) {
-                logger.info(JSON.stringify(convoResponseEvent))
-              }
-              response = partialResponse
-              if (onProgress && typeof onProgress === 'function') {
-                onProgress(partialResponse)
-              }
-            }
-            let content = partialResponse?.content[0]
-            if (content?.type === 'image' && content?.status === 'finish') {
-              image = content.image[0].image_url
-            }
-            if (convoResponseEvent.status === 'finish') {
-              resolve({
-                error: null,
-                response,
-                conversationId,
-                messageId,
-                conversationResponse,
-                image
-              })
-            }
-          } catch (err) {
-            console.warn('fetchSSE onMessage unexpected error', err)
-            reject(err)
+          } catch (e) {
+            console.error('Error parsing ChatGLM SSE:', e)
           }
         }
-
-        const parser = createParser((event) => {
-          if (event.type === 'event') {
-            onMessage(event.data)
-          }
-        })
-        const errBody = []
-        res.on('data', (chunk) => {
-          if (statusCode === 200) {
-            let str = chunk.toString()
-            parser.feed(str)
-          }
-          errBody.push(chunk)
-        })
-
-        // const body = []
-        // res.on('data', (chunk) => body.push(chunk))
-        res.on('end', () => {
-          const resString = Buffer.concat(errBody).toString()
-          reject(resString)
-        })
       })
-      req.on('error', (err) => {
+
+      response.body.on('data', (chunk) => {
+        parser.feed(chunk.toString())
+      })
+
+      response.body.on('error', (err) => {
         reject(err)
       })
 
-      req.on('timeout', () => {
-        req.destroy()
-        reject(new Error('Request time out'))
+      response.body.on('end', () => {
+        // parser should have handled everything
       })
-
-      req.write(JSON.stringify(body))
-      req.end()
     })
-    const res = await requestP
-    return {
-      text: res?.response?.content[0]?.text,
-      conversationId: res.conversationId,
-      id: res.messageId,
-      image,
-      raw: res?.response
-    }
   }
 }

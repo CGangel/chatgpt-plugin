@@ -23,64 +23,7 @@ export const HarmBlockThreshold = {
   OFF: 'OFF'
 }
 
-/**
- * @typedef {{
- * role: string,
- * parts: Array<{
- * text?: string,
- * functionCall?: FunctionCall,
- * functionResponse?: FunctionResponse,
- * executableCode?: {
- * language: string,
- * code: string
- * },
- * codeExecutionResult?: {
- * outcome: string,
- * output: string
- * }
- * }>
- * }} Content
- *
- * Gemini消息的基本格式
- */
 
-/**
- * @typedef {{
- * searchEntryPoint: {
- * renderedContent: string,
- * },
- * groundingChunks: Array<{
- * web: {
- * uri: string,
- * title: string
- * }
- * }>,
- * webSearchQueries: Array<string>
- * }} GroundingMetadata
- * 搜索结果的元数据
- */
-
-/**
- * @typedef {{
- * name: string,
- * args: {}
- * }} FunctionCall
- *
- * Gemini的FunctionCall
- */
-
-/**
- * @typedef {{
- * name: string,
- * response: {
- * name: string,
- * content: {}
- * }
- * }} FunctionResponse
- *
- * Gemini的Function执行结果包裹
- * 其中response可以为任意，本项目根据官方示例封装为name和content两个字段
- */
 
 export class CustomGoogleGeminiClient extends GoogleGeminiClient {
   constructor (props) {
@@ -91,31 +34,9 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
     this.debug = props.debug
   }
 
-  /**
-   *
-   * @param text
-   * @param {{
-   * conversationId: string?,
-   * parentMessageId: string?,
-   * stream: boolean?,
-   * onProgress: function?,
-   * functionResponse?: FunctionResponse | FunctionResponse[],
-   * system: string?,
-   * image: string?,
-   * maxOutputTokens: number?,
-   * temperature: number?,
-   * topP: number?,
-   * tokK: number?,
-   * replyPureTextCallback: Function,
-   * toolMode: 'AUTO' | 'ANY' | 'NONE'
-   * search: boolean,
-   * codeExecution: boolean,
-   * }} opt
-   * @param {number} retryTime 重试次数
-   * @returns {Promise<{conversationId: string?, parentMessageId: string, text: string, id: string}>}
-   */
+
   async sendMessage (text, opt = {}, retryTime = 3) {
-    const isProxy = this.baseUrl && this.baseUrl.includes('api.chatanywhere.tech')
+    const isProxy = this.baseUrl && (this.baseUrl.includes('api.chatanywhere.tech') || this.baseUrl.includes('www.packyapi.com'));
 
     let history = await this.getHistory(opt.parentMessageId)
     let systemMessage = opt.system
@@ -489,5 +410,4 @@ function handleSearchResponse (responseContent) {
     final,
     responseContent
   }
-}
 }
