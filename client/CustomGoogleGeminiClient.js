@@ -228,9 +228,23 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
     let responseContent
     let groundingMetadata // 仅 Gemini 原生 API 支持
 
+    let rawText
+    try {
+      rawText = await result.text()
+    } catch (textErr) {
+      logger.error(`[Gemini] 无法读取响应体: ${textErr.message}`)
+      throw textErr
+    }
+
     if (isProxy) {
       // --- 解析代理 (OpenAI 格式) 响应 ---
-      const response = await result.json()
+      let response
+      try {
+        response = JSON.parse(rawText)
+      } catch (parseErr) {
+        logger.error(`[Gemini] 代理API响应JSON解析失败 - 原始响应: ${rawText}`)
+        throw new Error(`Gemini proxy returned non-JSON response: ${rawText.substring(0, 500)}`)
+      }
       if (this.debug) {
         console.log('Proxy Response:', JSON.stringify(response))
       }
@@ -268,7 +282,13 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
     } else {
       // --- 解析原生 Gemini 响应 ---
       /** @type {{candidates: Array<{content: Content, groundingMetadata: GroundingMetadata, finishReason: string}>}} */
-      let response = await result.json()
+      let response
+      try {
+        response = JSON.parse(rawText)
+      } catch (parseErr) {
+        logger.error(`[Gemini] 原生API响应JSON解析失败 - 原始响应: ${rawText}`)
+        throw new Error(`Gemini native API returned non-JSON response: ${rawText.substring(0, 500)}`)
+      }
       if (this.debug) {
         console.log('Gemini Response:', JSON.stringify(response))
       }

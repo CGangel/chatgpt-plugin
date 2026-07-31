@@ -220,8 +220,14 @@ export class QwenApi {
             return reject(error)
           }
 
-          const response: types.qwen.CreateChatCompletionResponse =
-            await res.json()
+          const rawText = await res.text()
+          let response: types.qwen.CreateChatCompletionResponse
+          try {
+            response = JSON.parse(rawText)
+          } catch (parseErr) {
+            logger.error(`[Qwen] API响应JSON解析失败 - 原始响应: ${rawText}`)
+            throw parseErr
+          }
           if (this._debug) {
             console.log(response)
           }

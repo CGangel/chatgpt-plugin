@@ -182,7 +182,14 @@ export class ClaudeAPIClient extends BaseClient {
     /**
      * @type {ClaudeResponse}
      */
-    let response = await result.json()
+    let rawText = await result.text()
+    let response
+    try {
+      response = JSON.parse(rawText)
+    } catch (parseErr) {
+      logger.error(`[Claude] API响应JSON解析失败 - 原始响应: ${rawText}`)
+      throw new Error(`Claude API returned non-JSON response: ${rawText.substring(0, 500)}`)
+    }
     if (this.debug) {
       console.log(JSON.stringify(response))
     }

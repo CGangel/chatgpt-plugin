@@ -351,8 +351,14 @@ export class ChatGPTAPI {
                             return reject(error)
                         }
 
-                        const response: types.openai.CreateChatCompletionResponse =
-                          (await res.json()) as types.openai.CreateChatCompletionResponse
+                        const rawText = await res.text()
+                        let response: types.openai.CreateChatCompletionResponse
+                        try {
+                          response = JSON.parse(rawText) as types.openai.CreateChatCompletionResponse
+                        } catch (parseErr) {
+                          logger.error(`[OpenAI] API响应JSON解析失败 - 原始响应: ${rawText}`)
+                          throw parseErr
+                        }
                         if (this._debug) {
                             console.log(response)
                         }

@@ -167,7 +167,7 @@ var QwenApi = /** @class */ (function () {
                         };
                         completionParams.input = { messages: messages };
                         responseP = new Promise(function (resolve, reject) { return __awaiter(_this, void 0, void 0, function () {
-                            var url, headers, body, res, reason, msg, error, response, err_1;
+                            var url, headers, body, res, reason, msg, error, rawText, response, err_1;
                             var _a, _b, _c, _d, _e, _f, _g, _h, _j;
                             return __generator(this, function (_k) {
                                 switch (_k.label) {
@@ -205,9 +205,10 @@ var QwenApi = /** @class */ (function () {
                                         error.statusCode = res.status;
                                         error.statusText = res.statusText;
                                         return [2 /*return*/, reject(error)];
-                                    case 4: return [4 /*yield*/, res.json()];
+                                    case 4: return [4 /*yield*/, res.text()];
                                     case 5:
-                                        response = _k.sent();
+                                        rawText = _k.sent();
+                                        try { response = JSON.parse(rawText); } catch (parseErr) { logger.error("[Qwen] API响应JSON解析失败 - 原始响应: ".concat(rawText)); throw parseErr; }
                                         if (this._debug) {
                                             console.log(response);
                                         }

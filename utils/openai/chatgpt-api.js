@@ -229,7 +229,7 @@ var ChatGPTAPI = /** @class */ (function () {
                             conversation: []
                         };
                         responseP = new Promise(function (resolve, reject) { return __awaiter(_this, void 0, void 0, function () {
-                            var url, headers, body, res, reason, msg, error, response, message_1, res_1, err_1;
+                            var url, headers, body, res, reason, msg, error, rawText, response, message_1, res_1, err_1;
                             var _a, _b;
                             return __generator(this, function (_c) {
                                 switch (_c.label) {
@@ -339,9 +339,10 @@ var ChatGPTAPI = /** @class */ (function () {
                                         error.statusCode = res.status;
                                         error.statusText = res.statusText;
                                         return [2 /*return*/, reject(error)];
-                                    case 4: return [4 /*yield*/, res.json()];
+                                    case 4: return [4 /*yield*/, res.text()];
                                     case 5:
-                                        response = (_c.sent());
+                                        rawText = _c.sent();
+                                        try { response = JSON.parse(rawText); } catch (parseErr) { logger.error("[OpenAI] API响应JSON解析失败 - 原始响应: ".concat(rawText)); throw parseErr; }
                                         if (this._debug) {
                                             console.log(response);
                                         }
