@@ -235,7 +235,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
         console.log('Proxy Response:', JSON.stringify(response))
       }
       if (response.error) {
-        logger.error(`[Gemini] 代理API返回错误: ${JSON.stringify(response.error)}`)
+        logger.error(`[Gemini] 代理API返回错误 - 完整响应: ${JSON.stringify(response)}`)
         throw new Error(JSON.stringify(response.error))
       }
       if (!response.choices || response.choices.length === 0) {

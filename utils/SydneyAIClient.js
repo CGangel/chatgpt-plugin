@@ -179,7 +179,8 @@ export default class SydneyAIClient {
       }
       let ws = new WebSocket(host, undefined, { agent, origin: 'https://edgeservices.bing.com' })
       ws.on('error', (err) => {
-        console.error(err)
+        logger.error(`[Sydney/Bing] WebSocket连接错误: ${err.message || err}`)
+        if (err.code) logger.error(`[Sydney/Bing] 错误码: ${err.code}`)
         reject(err)
       })
 
@@ -845,6 +846,8 @@ export default class SydneyAIClient {
         }
       })
       ws.on('error', err => {
+        logger.error(`[Sydney/Bing] 对话WS错误: ${err.message || err}`)
+        if (err.code) logger.error(`[Sydney/Bing] 错误码: ${err.code}`)
         reject(err)
       })
     })

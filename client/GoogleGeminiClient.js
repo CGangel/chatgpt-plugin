@@ -138,7 +138,25 @@ export class GoogleGeminiClient extends BaseClient {
       }
     } catch (err) {
       logger.error(`[GoogleGemini] SDK调用错误: ${err.message || err}`)
+      if (err.status) logger.error(`[GoogleGemini] HTTP状态码: ${err.status}`)
+      if (err.errorDetails) logger.error(`[GoogleGemini] API错误详情: ${JSON.stringify(err.errorDetails)}`)
       if (err.stack) logger.error(`[GoogleGemini] 错误堆栈: ${err.stack}`)
+      // 尝试输出SDK错误的原始响应内容
+      try {
+        if (err.response) {
+          logger.error(`[GoogleGemini] 原始响应: ${JSON.stringify(err.response)}`)
+        }
+      } catch (e) {
+        logger.error(`[GoogleGemini] 无法序列化原始响应: ${e.message}`)
+      }
+      // 兜底：输出error对象中所有可枚举属性
+      try {
+        const errObj = {}
+        for (const key of Object.keys(err)) {
+          try { errObj[key] = typeof err[key] === 'string' ? err[key] : '[Object]' } catch (_) {}
+        }
+        logger.error(`[GoogleGemini] 错误对象属性: ${JSON.stringify(errObj)}`)
+      } catch (_) { /* ignore */ }
       throw err
     } finally {
       await this.upsertMessage({
