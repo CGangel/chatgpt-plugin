@@ -203,14 +203,25 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       logger.debug(`Request Body to ${url}: ${JSON.stringify(body)}`)
     }
 
-    let result = await newFetch(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      headers
-    })
+    let result
+    try {
+      result = await newFetch(url, {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers
+      })
+    } catch (fetchErr) {
+      logger.error(`[Gemini] 网络请求失败 - URL: ${url}`)
+      logger.error(`[Gemini] 错误详情: ${fetchErr.message}`)
+      if (fetchErr.code) logger.error(`[Gemini] 错误码: ${fetchErr.code}`)
+      if (fetchErr.cause) logger.error(`[Gemini] 错误原因: ${JSON.stringify(fetchErr.cause)}`)
+      throw fetchErr
+    }
 
     if (result.status !== 200) {
-      throw new Error(`API request failed with status ${result.status}: ${await result.text()}`)
+      const errorBody = await result.text()
+      logger.error(`[Gemini] API返回非200状态 - 状态码: ${result.status}, 响应体: ${errorBody}`)
+      throw new Error(`API request failed with status ${result.status}: ${errorBody}`)
     }
 
     /** @type {Content | undefined} */
@@ -224,9 +235,11 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
         console.log('Proxy Response:', JSON.stringify(response))
       }
       if (response.error) {
+        logger.error(`[Gemini] 代理API返回错误: ${JSON.stringify(response.error)}`)
         throw new Error(JSON.stringify(response.error))
       }
       if (!response.choices || response.choices.length === 0) {
+        logger.error(`[Gemini] 代理API无choices返回 - 完整响应: ${JSON.stringify(response)}`)
         // 无内容回复，可在此处添加重试逻辑
         throw new Error('Proxy API returned no choices.')
       }
@@ -260,6 +273,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
         console.log('Gemini Response:', JSON.stringify(response))
       }
       if (!response.candidates || response.candidates.length === 0) {
+        logger.error(`[Gemini] 原生API无candidates返回 - 完整响应: ${JSON.stringify(response)}`)
         // 无内容回复，可在此处添加重试逻辑
         throw new Error('Gemini API returned no candidates.')
       }

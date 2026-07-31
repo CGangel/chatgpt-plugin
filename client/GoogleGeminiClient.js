@@ -136,6 +136,10 @@ export class GoogleGeminiClient extends BaseClient {
         parentMessageId: idUser,
         id: idModel
       }
+    } catch (err) {
+      logger.error(`[GoogleGemini] SDK调用错误: ${err.message || err}`)
+      if (err.stack) logger.error(`[GoogleGemini] 错误堆栈: ${err.stack}`)
+      throw err
     } finally {
       await this.upsertMessage({
         role: 'user',

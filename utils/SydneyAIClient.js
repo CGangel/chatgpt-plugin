@@ -886,6 +886,9 @@ export default class SydneyAIClient {
       }
     } catch (err) {
       await this.conversationsCache.set(conversationKey, conversation)
+      logger.error(`[Sydney/Bing] sendMessage错误: ${err.message || err}`)
+      if (err.code) logger.error(`[Sydney/Bing] 错误码: ${err.code}`)
+      if (err.stack) logger.error(`[Sydney/Bing] 错误堆栈: ${err.stack}`)
       err.conversation = {
         conversationSignature,
         conversationId,

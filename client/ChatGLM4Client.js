@@ -75,17 +75,27 @@ export class ChatGLM4Client extends BaseClient {
       body.thinking = { type: this.thinking ? 'enabled' : 'disabled' }
     }
 
-    const response = await newFetch(this.baseUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.apiKey}`
-      },
-      body: JSON.stringify(body)
-    })
+    let response
+    try {
+      response = await newFetch(this.baseUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify(body)
+      })
+    } catch (fetchErr) {
+      logger.error(`[ChatGLM] 网络请求失败 - URL: ${this.baseUrl}`)
+      logger.error(`[ChatGLM] 错误详情: ${fetchErr.message}`)
+      if (fetchErr.code) logger.error(`[ChatGLM] 错误码: ${fetchErr.code}`)
+      if (fetchErr.cause) logger.error(`[ChatGLM] 错误原因: ${JSON.stringify(fetchErr.cause)}`)
+      throw fetchErr
+    }
 
     if (!response.ok) {
       const error = await response.text()
+      logger.error(`[ChatGLM] API返回错误 - 状态码: ${response.status}, 响应体: ${error}`)
       throw new Error(`ChatGLM API error: ${response.status} ${error}`)
     }
 
@@ -135,6 +145,7 @@ export class ChatGLM4Client extends BaseClient {
       })
 
       response.body.on('error', (err) => {
+        logger.error(`[ChatGLM] SSE流错误: ${err.message || err}`)
         reject(err)
       })
 

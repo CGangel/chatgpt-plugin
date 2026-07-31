@@ -159,7 +159,7 @@ export class OfficialChatGPTClient {
           parentMessageId
         }
       } else {
-        console.log(response)
+        logger.error(`[API3] API返回非200 - 状态码: ${statusCode}, 响应体: ${JSON.stringify(response)}`)
         throw new Error(JSON.stringify(response))
       }
     } catch (err) {

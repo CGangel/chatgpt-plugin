@@ -199,6 +199,7 @@ var QwenApi = /** @class */ (function () {
                                         return [4 /*yield*/, res.text()];
                                     case 3:
                                         reason = _k.sent();
+                                        logger.error("[Qwen] API返回错误 - 状态码: ".concat(res.status || res.statusText, ", 响应体: ").concat(reason));
                                         msg = "Qwen error ".concat(res.status || res.statusText, ": ").concat(reason);
                                         error = new types.ChatGPTError(msg);
                                         error.statusCode = res.status;
@@ -224,6 +225,8 @@ var QwenApi = /** @class */ (function () {
                                         return [2 /*return*/, resolve(result)];
                                     case 6:
                                         err_1 = _k.sent();
+                                        logger.error("[Qwen] 网络请求失败: ".concat(err_1.message || err_1));
+                                        if (err_1.code) logger.error("[Qwen] 错误码: ".concat(err_1.code));
                                         return [2 /*return*/, reject(err_1)];
                                     case 7: return [2 /*return*/];
                                 }

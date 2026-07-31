@@ -45,6 +45,8 @@ export class BingAIClient {
       })
       return responseText
     } catch (err) {
+      logger.error(`[Copilot/Bing] sendMessage错误: ${err.message || err}`)
+      if (err.code) logger.error(`[Copilot/Bing] 错误码: ${err.code}`)
       if (this.partialMessages.get(this.currentMessageId)) {
         return this.partialMessages.get(this.currentMessageId).text
       } else {
@@ -87,6 +89,7 @@ export class BingAIClient {
       })
 
       this.ws.on('error', (err) => {
+        logger.error(`[Copilot/Bing] WebSocket连接错误: ${err.message || err}`)
         reject(err)
       })
     })
@@ -296,6 +299,11 @@ export class BingAIClient {
         this.accessToken = null
       }
     }
+    if (createConversationRsp.status !== 200) {
+      const errBody = await createConversationRsp.text()
+      logger.error(`[Copilot] 创建对话失败 - 状态码: ${createConversationRsp.status}, 响应体: ${errBody}`)
+      throw new Error(`Copilot create conversation failed with status ${createConversationRsp.status}: ${errBody}`)
+    }
     const conversation = await createConversationRsp.json()
     return conversation.id
   }
@@ -316,6 +324,11 @@ export class BingAIClient {
         teenSupportEnabled: true
       })
     })
+    if (createConversationRsp.status !== 200) {
+      const errBody = await createConversationRsp.text()
+      logger.error(`[Copilot] 获取当前对话失败 - 状态码: ${createConversationRsp.status}, 响应体: ${errBody}`)
+      throw new Error(`Copilot get current conversation failed with status ${createConversationRsp.status}: ${errBody}`)
+    }
     const conversation = await createConversationRsp.json()
     return conversation.currentConversationId
   }
@@ -366,6 +379,11 @@ export class BingAIClient {
     }
 
     const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', requestOptions)
+    if (tokenResponse.status !== 200) {
+      const errBody = await tokenResponse.text()
+      logger.error(`[Copilot] 刷新Token失败 - 状态码: ${tokenResponse.status}, 响应体: ${errBody}`)
+      throw new Error(`Copilot refresh token failed with status ${tokenResponse.status}: ${errBody}`)
+    }
     const tokenJson = await tokenResponse.json()
     if (this.debug) {
       logger.info(JSON.stringify(tokenJson))

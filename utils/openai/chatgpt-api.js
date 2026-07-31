@@ -313,7 +313,11 @@ var ChatGPTAPI = /** @class */ (function () {
                                                     return reject(err);
                                                 }
                                             }
-                                        }, this._fetch).catch(reject);
+                                        }, this._fetch).catch(function (err) {
+                                            logger.error("[OpenAI/SSE] 流式请求失败: ".concat(err.message || err));
+                                            if (err.code) logger.error("[OpenAI/SSE] 错误码: ".concat(err.code));
+                                            reject(err);
+                                        });
                                         return [3 /*break*/, 7];
                                     case 1:
                                         _c.trys.push([1, 6, , 7]);
@@ -329,6 +333,7 @@ var ChatGPTAPI = /** @class */ (function () {
                                         return [4 /*yield*/, res.text()];
                                     case 3:
                                         reason = _c.sent();
+                                        logger.error("[OpenAI] API返回错误 - 状态码: ".concat(res.status || res.statusText, ", 响应体: ").concat(reason));
                                         msg = "OpenAI error ".concat(res.status || res.statusText, ": ").concat(reason);
                                         error = new types.ChatGPTError(msg);
                                         error.statusCode = res.status;
@@ -362,6 +367,7 @@ var ChatGPTAPI = /** @class */ (function () {
                                         else {
                                             res_1 = response;
                                             console.error(res_1);
+                                            logger.error("[OpenAI] API返回无choices - 完整响应: ".concat(JSON.stringify(res_1)));
                                             return [2 /*return*/, reject(new Error("OpenAI error: ".concat(((_b = res_1 === null || res_1 === void 0 ? void 0 : res_1.detail) === null || _b === void 0 ? void 0 : _b.message) || (res_1 === null || res_1 === void 0 ? void 0 : res_1.detail) || 'unknown')))];
                                         }
                                         result.detail = response;
@@ -369,6 +375,8 @@ var ChatGPTAPI = /** @class */ (function () {
                                         return [2 /*return*/, resolve(result)];
                                     case 6:
                                         err_1 = _c.sent();
+                                        logger.error("[OpenAI] 网络请求失败: ".concat(err_1.message || err_1));
+                                        if (err_1.code) logger.error("[OpenAI] 错误码: ".concat(err_1.code));
                                         return [2 /*return*/, reject(err_1)];
                                     case 7: return [2 /*return*/];
                                 }

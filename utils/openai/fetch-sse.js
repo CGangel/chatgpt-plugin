@@ -82,6 +82,7 @@ export function fetchSSE(url, options, fetchFn) {
                     reason = res.statusText;
                     return [3 /*break*/, 5];
                 case 5:
+                    logger.error("[OpenAI/SSE] HTTP错误 - 状态码: ".concat(res.status, ", 响应体: ").concat(reason));
                     msg = "ChatGPT error ".concat(res.status, ": ").concat(reason);
                     error = new types.ChatGPTError(msg, { cause: res });
                     error.statusCode = res.status;

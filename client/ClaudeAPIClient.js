@@ -156,17 +156,28 @@ export class ClaudeAPIClient extends BaseClient {
       stream: false
     })
     let url = `${this.baseUrl}/v1/messages`
-    let result = await newFetch(url, {
-      headers: {
-        'anthropic-version': '2023-06-01',
-        'x-api-key': this.key,
-        'content-type': 'application/json'
-      },
-      method: 'POST',
-      body: JSON.stringify(body)
-    })
+    let result
+    try {
+      result = await newFetch(url, {
+        headers: {
+          'anthropic-version': '2023-06-01',
+          'x-api-key': this.key,
+          'content-type': 'application/json'
+        },
+        method: 'POST',
+        body: JSON.stringify(body)
+      })
+    } catch (fetchErr) {
+      logger.error(`[Claude] 网络请求失败 - URL: ${url}`)
+      logger.error(`[Claude] 错误详情: ${fetchErr.message}`)
+      if (fetchErr.code) logger.error(`[Claude] 错误码: ${fetchErr.code}`)
+      if (fetchErr.cause) logger.error(`[Claude] 错误原因: ${JSON.stringify(fetchErr.cause)}`)
+      throw fetchErr
+    }
     if (result.status !== 200) {
-      throw new Error(await result.text())
+      const errorBody = await result.text()
+      logger.error(`[Claude] API返回非200状态 - 状态码: ${result.status}, 响应体: ${errorBody}`)
+      throw new Error(errorBody)
     }
     /**
      * @type {ClaudeResponse}
@@ -176,7 +187,7 @@ export class ClaudeAPIClient extends BaseClient {
       console.log(JSON.stringify(response))
     }
     if (response.type === 'error') {
-      logger.error(response.error.message)
+      logger.error(`[Claude] API返回错误 - 完整响应: ${JSON.stringify(response)}`)
       throw new Error(response.error.type)
     }
     await this.upsertMessage(thisMessage)

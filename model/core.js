@@ -329,6 +329,9 @@ class Core {
             }
             default:
           }
+          logger.error(`[Claude] API错误 - Key: ${key?.slice(0, 8)}***, 错误信息: ${errorMessage}`)
+          if (err.code) logger.error(`[Claude] 错误码: ${err.code}`)
+          if (err.stack) logger.error(`[Claude] 错误堆栈: ${err.stack}`)
           logger.warn(`claude api 错误：[${key}] ${errorMessage}`)
         }
         if (keys.length === 0) {
@@ -394,13 +397,20 @@ class Core {
       })
       // 获取图片资源
       const image = await getImg(e)
-      let response = await client.sendMessage(prompt, {
-        e,
-        chatId: conversation?.conversationId,
-        image: image ? image[0] : undefined,
-        system: opt.system.xh
-      })
-      return response
+      try {
+        let response = await client.sendMessage(prompt, {
+          e,
+          chatId: conversation?.conversationId,
+          image: image ? image[0] : undefined,
+          system: opt.system.xh
+        })
+        return response
+      } catch (err) {
+        logger.error(`[星火] sendMessage 错误: ${err.message || err}`)
+        if (err.code) logger.error(`[星火] 错误码: ${err.code}`)
+        if (err.stack) logger.error(`[星火] 错误堆栈: ${err.stack}`)
+        throw err
+      }
     } else if (use === 'azure') {
       let azureModel
       try {
@@ -536,8 +546,11 @@ class Core {
             logger.info(msg)
           }
         } catch (err) {
-          logger.error(err)
-          throw new Error(err)
+          logger.error(`[Qwen] sendMessage错误: ${err.message || err}`)
+          if (err.code) logger.error(`[Qwen] 错误码: ${err.code}`)
+          if (err.statusCode) logger.error(`[Qwen] HTTP状态码: ${err.statusCode}`)
+          if (err.stack) logger.error(`[Qwen] 错误堆栈: ${err.stack}`)
+          throw err
         }
         return msg
       } else {
@@ -546,8 +559,11 @@ class Core {
           this.qwenApi = new QwenApi(opts)
           msg = await this.qwenApi.sendMessage(prompt, option)
         } catch (err) {
-          logger.error(err)
-          throw new Error(err)
+          logger.error(`[Qwen] sendMessage错误: ${err.message || err}`)
+          if (err.code) logger.error(`[Qwen] 错误码: ${err.code}`)
+          if (err.statusCode) logger.error(`[Qwen] HTTP状态码: ${err.statusCode}`)
+          if (err.stack) logger.error(`[Qwen] 错误堆栈: ${err.stack}`)
+          throw err
         }
         return msg
       }
@@ -618,7 +634,14 @@ class Core {
         }
       })
       option.toolMode = (opt.settings.forceTool || Config.geminiForceToolKeywords?.find(k => prompt?.includes(k))) ? 'ANY' : 'AUTO'
-      return await client.sendMessage(prompt, option)
+      try {
+        return await client.sendMessage(prompt, option)
+      } catch (err) {
+        logger.error(`[Gemini] sendMessage 错误: ${err.message || err}`)
+        if (err.code) logger.error(`[Gemini] 错误码: ${err.code}`)
+        if (err.stack) logger.error(`[Gemini] 错误堆栈: ${err.stack}`)
+        throw err
+      }
     } else if (use === 'chatglm4') {
       const client = new ChatGLM4Client({
         apiKey: Config.chatglmApiKey,
@@ -628,11 +651,18 @@ class Core {
         debug: Config.debug
       })
       let system = await handleSystem(e, opt.system.chatglm, opt.settings)
-      let resp = await client.sendMessage(prompt, { ...conversation, system })
-      if (resp.image) {
-        this.reply(segment.image(resp.image), true)
+      try {
+        let resp = await client.sendMessage(prompt, { ...conversation, system })
+        if (resp.image) {
+          this.reply(segment.image(resp.image), true)
+        }
+        return resp
+      } catch (err) {
+        logger.error(`[ChatGLM4] sendMessage 错误: ${err.message || err}`)
+        if (err.code) logger.error(`[ChatGLM4] 错误码: ${err.code}`)
+        if (err.stack) logger.error(`[ChatGLM4] 错误堆栈: ${err.stack}`)
+        throw err
       }
-      return resp
     } else {
       // openai api
       let completionParams = {}
@@ -749,8 +779,11 @@ class Core {
             await this.reply('字数超限啦，将为您自动结束本次对话。')
             return null
           } else {
-            logger.error(err)
-            throw new Error(err)
+            logger.error(`[OpenAI/smart] sendMessage错误: ${err.message || err}`)
+            if (err.code) logger.error(`[OpenAI/smart] 错误码: ${err.code}`)
+            if (err.statusCode) logger.error(`[OpenAI/smart] HTTP状态码: ${err.statusCode}`)
+            if (err.stack) logger.error(`[OpenAI/smart] 错误堆栈: ${err.stack}`)
+            throw err
           }
         }
         return msg
@@ -766,8 +799,11 @@ class Core {
             await this.reply('字数超限啦，将为您自动结束本次对话。')
             return null
           } else {
-            logger.error(err)
-            throw new Error(err)
+            logger.error(`[OpenAI] sendMessage错误: ${err.message || err}`)
+            if (err.code) logger.error(`[OpenAI] 错误码: ${err.code}`)
+            if (err.statusCode) logger.error(`[OpenAI] HTTP状态码: ${err.statusCode}`)
+            if (err.stack) logger.error(`[OpenAI] 错误堆栈: ${err.stack}`)
+            throw err
           }
         }
         return msg

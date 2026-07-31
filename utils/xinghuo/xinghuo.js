@@ -237,6 +237,7 @@ export default class XinghuoClient {
                 response: '对话以达到上限，已自动清理对话，请重试'
               })
             } else {
+              logger.error(`[星火] WebSocket错误 - 原始帧: ${message.toString()}`)
               reject(`接口发生错误：Error Code ${messageData.header.code} ,${this.apiErrorInfo(messageData.header.code)}`)
             }
           }
@@ -313,7 +314,7 @@ export default class XinghuoClient {
       const req = https.request(chatUrl, option, (res) => {
         statusCode = res.statusCode
         if (statusCode !== 200) {
-          logger.error('星火statusCode：' + statusCode)
+          logger.error(`[星火] HTTP状态码异常: ${statusCode}`)
         }
         let response = ''
         function onMessage (data) {
@@ -365,7 +366,9 @@ export default class XinghuoClient {
         // res.on('data', (chunk) => body.push(chunk))
         res.on('end', () => {
           const resString = Buffer.concat(errBody).toString()
-          // logger.info({ resString })
+          if (statusCode !== 200) {
+            logger.error(`[星火] API返回错误 - 状态码: ${statusCode}, 响应体: ${resString}`)
+          }
           reject(resString)
         })
       })
