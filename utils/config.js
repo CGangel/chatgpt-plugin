@@ -10,7 +10,6 @@ export const pureSydneyInstruction = 'You\'re an AI assistant named [name]. Answ
 const defaultConfig = {
   blockWords: ['屏蔽词1', '屏蔽词b'],
   promptBlockWords: ['屏蔽词1', '屏蔽词b'],
-  imgOcr: true,
   defaultUsePicture: false,
   defaultUseTTS: false,
   defaultTTSRole: '纳西妲',
@@ -151,11 +150,7 @@ const defaultConfig = {
   autoJapanese: false,
   enableGenerateContents: false,
   enableGenerateSuno: false,
-  amapKey: '',
-  azSerpKey: '',
-  serpSource: 'ikechan8370',
   extraUrl: 'https://cpe.ikechan8370.com',
-  smartMode: false,
   // claude2
   claudeAIOrganizationId: '',
   claudeAISessionKey: '',
@@ -231,10 +226,6 @@ const defaultConfig = {
   _2captchaKey: '',
   bingReasoning: false, // 是否深度思考
   apiMaxToken: 4096,
-  enableToolPrivateSend: true, // 是否允许智能模式下私聊骚扰其他群友。主人不受影响。
-  geminiForceToolKeywords: [],
-  githubAPI: 'https://api.github.com',
-  githubAPIKey: '',
   version: 'v2.8.4'
 }
 const _path = process.cwd()

@@ -11,7 +11,6 @@ import {
 import { KeyvFile } from 'keyv-file'
 import SydneyAIClient from '../utils/SydneyAIClient.js'
 import { getChatHistoryGroup } from '../utils/chat.js'
-import { APTool } from '../utils/tools/APTool.js'
 import { OfficialChatGPTClient } from '../utils/message.js'
 import { ClaudeAPIClient } from '../client/ClaudeAPIClient.js'
 import { ClaudeAIClient } from '../utils/claude.ai/index.js'
@@ -20,33 +19,6 @@ import { getMessageById, upsertMessage } from '../utils/history.js'
 import { v4 as uuid } from 'uuid'
 import fetch from 'node-fetch'
 import { CustomGoogleGeminiClient } from '../client/CustomGoogleGeminiClient.js'
-import { QueryStarRailTool } from '../utils/tools/QueryStarRailTool.js'
-import { WebsiteTool } from '../utils/tools/WebsiteTool.js'
-import { SendPictureTool } from '../utils/tools/SendPictureTool.js'
-import { SendVideoTool } from '../utils/tools/SendBilibiliTool.js'
-import { SearchVideoTool } from '../utils/tools/SearchBilibiliTool.js'
-import { SendAvatarTool } from '../utils/tools/SendAvatarTool.js'
-import { SerpImageTool } from '../utils/tools/SearchImageTool.js'
-import { SearchMusicTool } from '../utils/tools/SearchMusicTool.js'
-import { SendMusicTool } from '../utils/tools/SendMusicTool.js'
-// import { SendAudioMessageTool } from '../utils/tools/SendAudioMessageTool.js'
-import { SendMessageToSpecificGroupOrUserTool } from '../utils/tools/SendMessageToSpecificGroupOrUserTool.js'
-import { QueryGenshinTool } from '../utils/tools/QueryGenshinTool.js'
-import { WeatherTool } from '../utils/tools/WeatherTool.js'
-import { QueryUserinfoTool } from '../utils/tools/QueryUserinfoTool.js'
-import { EditCardTool } from '../utils/tools/EditCardTool.js'
-import { JinyanTool } from '../utils/tools/JinyanTool.js'
-import { KickOutTool } from '../utils/tools/KickOutTool.js'
-import { SetTitleTool } from '../utils/tools/SetTitleTool.js'
-import { SerpIkechan8370Tool } from '../utils/tools/SerpIkechan8370Tool.js'
-import { SerpTool } from '../utils/tools/SerpTool.js'
-import common from '../../../lib/common/common.js'
-import { SendDiceTool } from '../utils/tools/SendDiceTool.js'
-// import { EliMovieTool } from '../utils/tools/EliMovieTool.js'
-// import { EliMusicTool } from '../utils/tools/EliMusicTool.js'
-import { HandleMessageMsgTool } from '../utils/tools/HandleMessageMsgTool.js'
-import { ProcessPictureTool } from '../utils/tools/ProcessPictureTool.js'
-// import { ImageCaptionTool } from '../utils/tools/ImageCaptionTool.js'
 import { ChatGPTAPI } from '../utils/openai/chatgpt-api.js'
 import { newFetch } from '../utils/proxy.js'
 import { ChatGLM4Client } from '../client/ChatGLM4Client.js'
@@ -54,7 +26,6 @@ import { QwenApi } from '../utils/alibaba/qwen-api.js'
 import { BingAIClient } from '../client/CopilotAIClient.js'
 import Keyv from 'keyv'
 import crypto from 'crypto'
-import {GithubAPITool} from '../utils/tools/GithubTool.js'
 
 export const roleMap = {
   owner: 'group owner',
@@ -137,7 +108,6 @@ async function getImagePayloads (e) {
 
 class Core {
   async sendMessage (prompt, conversation = {}, use, e, opt = {
-    enableSmart: Config.smartMode,
     system: {
       api: Config.promptPrefixOverride,
       qwen: Config.promptPrefixOverride,
@@ -150,8 +120,7 @@ class Core {
     },
     settings: {
       replyPureTextCallback: undefined,
-      enableGroupContext: Config.enableGroupContext,
-      forceTool: false
+      enableGroupContext: Config.enableGroupContext
     }
   }) {
     if (!conversation) {
@@ -484,89 +453,18 @@ class Core {
       if (images.length > 0) {
         option.images = images
       }
-      if (opt.enableSmart) {
-        let isAdmin = ['admin', 'owner'].includes(e.sender.role)
-        let sender = e.sender.user_id
-        const {
-          funcMap,
-          fullFuncMap,
-          promptAddition,
-          systemAddition
-        } = await collectTools(e)
-        if (!option.completionParams) {
-          option.completionParams = {}
-        }
-        promptAddition && (prompt += promptAddition)
-        option.systemMessage = await handleSystem(e, opts.systemMessage, opt.settings)
-        if (Config.enableChatSuno) {
-          option.systemMessage += '如果我要求你生成音乐或写歌，你需要回复适合Suno生成音乐的信息。请使用Verse、Chorus、Bridge、Outro和End等关键字对歌词进行分段，如[Verse 1]。音乐信息需要使用markdown包裹的JSON格式回复给我，结构为```json{"option": "Suno", "tags": "style", "title": "title of the song", "lyrics": "lyrics"}```。'
-        }
-        systemAddition && (option.systemMessage += systemAddition)
-        opts.completionParams.parameters.tools = Object.keys(funcMap)
-          .map(k => funcMap[k].function)
-          .map(obj => {
-            return {
-              type: 'function',
-              function: obj
-            }
-          })
-        let msg
-        try {
-          this.qwenApi = new QwenApi(opts)
-          msg = await this.qwenApi.sendMessage(prompt, option)
-          logger.info(msg)
-          while (msg.functionCall) {
-            if (msg.text) {
-              await e.reply(msg.text.replace('\n\n\n', '\n'))
-            }
-            let {
-              name,
-              arguments: args
-            } = msg.functionCall
-            args = JSON.parse(args)
-            // 感觉换成targetGroupIdOrUserQQNumber这种表意比较清楚的变量名，效果会好一丢丢
-            if (!args.groupId) {
-              args.groupId = e.group_id + '' || e.sender.user_id + ''
-            }
-            try {
-              parseInt(args.groupId)
-            } catch (err) {
-              args.groupId = e.group_id + '' || e.sender.user_id + ''
-            }
-            let functionResult = await fullFuncMap[name.trim()].exec.bind(this)(Object.assign({
-              isAdmin,
-              sender
-            }, args), e)
-            logger.mark(`function ${name} execution result: ${functionResult}`)
-            option.parentMessageId = msg.id
-            option.name = name
-            // 不然普通用户可能会被openai限速
-            await common.sleep(300)
-            msg = await this.qwenApi.sendMessage(functionResult, option, 'tool')
-            logger.info(msg)
-          }
-        } catch (err) {
-          logger.error(`[Qwen] sendMessage错误: ${err.message || err}`)
-          if (err.code) logger.error(`[Qwen] 错误码: ${err.code}`)
-          if (err.statusCode) logger.error(`[Qwen] HTTP状态码: ${err.statusCode}`)
-          if (err.stack) logger.error(`[Qwen] 错误堆栈: ${err.stack}`)
-          throw err
-        }
-        return msg
-      } else {
-        let msg
-        try {
-          this.qwenApi = new QwenApi(opts)
-          msg = await this.qwenApi.sendMessage(prompt, option)
-        } catch (err) {
-          logger.error(`[Qwen] sendMessage错误: ${err.message || err}`)
-          if (err.code) logger.error(`[Qwen] 错误码: ${err.code}`)
-          if (err.statusCode) logger.error(`[Qwen] HTTP状态码: ${err.statusCode}`)
-          if (err.stack) logger.error(`[Qwen] 错误堆栈: ${err.stack}`)
-          throw err
-        }
-        return msg
+      let msg
+      try {
+        this.qwenApi = new QwenApi(opts)
+        msg = await this.qwenApi.sendMessage(prompt, option)
+      } catch (err) {
+        logger.error(`[Qwen] sendMessage错误: ${err.message || err}`)
+        if (err.code) logger.error(`[Qwen] 错误码: ${err.code}`)
+        if (err.statusCode) logger.error(`[Qwen] HTTP状态码: ${err.statusCode}`)
+        if (err.stack) logger.error(`[Qwen] 错误堆栈: ${err.stack}`)
+        throw err
       }
+      return msg
     } else if (use === 'gemini') {
       let client = new CustomGoogleGeminiClient({
         e,
@@ -594,13 +492,6 @@ class Core {
         const response = await fetch(imageUrl)
         const base64Image = Buffer.from(await response.arrayBuffer())
         option.image = base64Image.toString('base64')
-      }
-      if (opt.enableSmart) {
-        const {
-          funcMap
-        } = await collectTools(e)
-        let tools = Object.keys(funcMap).map(k => funcMap[k].tool)
-        client.addTools(tools)
       }
       let system = opt.system.gemini
       if (opt.settings.enableGroupContext && e.isGroup) {
@@ -633,7 +524,6 @@ class Core {
           await e.reply(msg, true)
         }
       })
-      option.toolMode = (opt.settings.forceTool || Config.geminiForceToolKeywords?.find(k => prompt?.includes(k))) ? 'ANY' : 'AUTO'
       try {
         return await client.sendMessage(prompt, option)
       } catch (err) {
@@ -722,221 +612,30 @@ class Core {
         }
         option = Object.assign(option, conversation)
       }
-      if (opt.enableSmart) {
-        let isAdmin = ['admin', 'owner'].includes(e.sender.role)
-        let sender = e.sender.user_id
-        const {
-          funcMap,
-          fullFuncMap,
-          promptAddition,
-          systemAddition
-        } = await collectTools(e)
-        if (!option.completionParams) {
-          option.completionParams = {}
-        }
-        promptAddition && (prompt += promptAddition)
-        systemAddition && (option.systemMessage += systemAddition)
-        option.completionParams.functions = Object.keys(funcMap).map(k => funcMap[k].function)
-        let msg
-        try {
-          msg = await this.chatGPTApi.sendMessage(prompt, option)
-          logger.info(msg)
-          while (msg.functionCall) {
-            if (msg.text) {
-              await this.reply(msg.text.replace('\n\n\n', '\n'))
-            }
-            let {
-              name,
-              arguments: args
-            } = msg.functionCall
-            args = JSON.parse(args)
-            // 感觉换成targetGroupIdOrUserQQNumber这种表意比较清楚的变量名，效果会好一丢丢
-            if (!args.groupId) {
-              args.groupId = e.group_id + '' || e.sender.user_id + ''
-            }
-            try {
-              parseInt(args.groupId)
-            } catch (err) {
-              args.groupId = e.group_id + '' || e.sender.user_id + ''
-            }
-            let functionResult = await fullFuncMap[name.trim()].exec.bind(this)(Object.assign({
-              isAdmin,
-              sender
-            }, args), e)
-            logger.mark(`function ${name} execution result: ${functionResult}`)
-            option.parentMessageId = msg.id
-            option.name = name
-            // 不然普通用户可能会被openai限速
-            await common.sleep(300)
-            msg = await this.chatGPTApi.sendMessage(functionResult, option, 'function')
-            logger.info(msg)
-          }
-        } catch (err) {
-          if (err.message?.indexOf('context_length_exceeded') > 0) {
-            logger.warn(err)
-            await redis.del(`CHATGPT:CONVERSATIONS:${e.sender.user_id}`)
-            await redis.del(`CHATGPT:WRONG_EMOTION:${e.sender.user_id}`)
-            await this.reply('字数超限啦，将为您自动结束本次对话。')
-            return null
-          } else {
-            logger.error(`[OpenAI/smart] sendMessage错误: ${err.message || err}`)
-            if (err.code) logger.error(`[OpenAI/smart] 错误码: ${err.code}`)
-            if (err.statusCode) logger.error(`[OpenAI/smart] HTTP状态码: ${err.statusCode}`)
-            if (err.stack) logger.error(`[OpenAI/smart] 错误堆栈: ${err.stack}`)
-            throw err
-          }
-        }
-        return msg
-      } else {
-        let msg
-        try {
-          msg = await this.chatGPTApi.sendMessage(prompt, option)
-        } catch (err) {
-          if (err.message?.indexOf('context_length_exceeded') > 0) {
-            logger.warn(err)
-            await redis.del(`CHATGPT:CONVERSATIONS:${e.sender.user_id}`)
-            await redis.del(`CHATGPT:WRONG_EMOTION:${e.sender.user_id}`)
-            await this.reply('字数超限啦，将为您自动结束本次对话。')
-            return null
-          } else {
-            logger.error(`[OpenAI] sendMessage错误: ${err.message || err}`)
-            if (err.code) logger.error(`[OpenAI] 错误码: ${err.code}`)
-            if (err.statusCode) logger.error(`[OpenAI] HTTP状态码: ${err.statusCode}`)
-            if (err.stack) logger.error(`[OpenAI] 错误堆栈: ${err.stack}`)
-            throw err
-          }
-        }
-        return msg
+      const images = await getImagePayloads(e)
+      if (images.length > 0) {
+        option.images = images
       }
-    }
-  }
-}
-
-/**
- * 收集tools
- * @param e
- * @return {Promise<{systemAddition, funcMap: {}, promptAddition: string, fullFuncMap: {}}>}
- */
-async function collectTools (e) {
-  let serpTool
-  switch (Config.serpSource) {
-    case 'ikechan8370': {
-      serpTool = new SerpIkechan8370Tool()
-      break
-    }
-    case 'azure': {
-      if (!Config.azSerpKey) {
-        logger.warn('未配置bing搜索密钥，转为使用ikechan8370搜索源')
-        serpTool = new SerpIkechan8370Tool()
-      } else {
-        serpTool = new SerpTool()
+      let msg
+      try {
+        msg = await this.chatGPTApi.sendMessage(prompt, option)
+      } catch (err) {
+        if (err.message?.indexOf('context_length_exceeded') > 0) {
+          logger.warn(err)
+          await redis.del(`CHATGPT:CONVERSATIONS:${e.sender.user_id}`)
+          await redis.del(`CHATGPT:WRONG_EMOTION:${e.sender.user_id}`)
+          await this.reply('字数超限啦，将为您自动结束本次对话。')
+          return null
+        } else {
+          logger.error(`[OpenAI] sendMessage错误: ${err.message || err}`)
+          if (err.code) logger.error(`[OpenAI] 错误码: ${err.code}`)
+          if (err.statusCode) logger.error(`[OpenAI] HTTP状态码: ${err.statusCode}`)
+          if (err.stack) logger.error(`[OpenAI] 错误堆栈: ${err.stack}`)
+          throw err
+        }
       }
-      break
+      return msg
     }
-    default: {
-      serpTool = new SerpIkechan8370Tool()
-    }
-  }
-  let fullTools = [
-    new EditCardTool(),
-    // new QueryStarRailTool(),
-    new WebsiteTool(),
-    new JinyanTool(),
-    new KickOutTool(),
-    new WeatherTool(),
-    new SendPictureTool(),
-    new SendVideoTool(),
-    // new ImageCaptionTool(),
-    new SearchVideoTool(),
-    new SendAvatarTool(),
-    new SerpImageTool(),
-    new SearchMusicTool(),
-    new SendMusicTool(),
-    new SerpIkechan8370Tool(),
-    new SerpTool(),
-    // new SendAudioMessageTool(),
-    // new ProcessPictureTool(),
-    new APTool(),
-    new HandleMessageMsgTool(),
-    new QueryUserinfoTool(),
-    // new EliMusicTool(),
-    // new EliMovieTool(),
-    new SendMessageToSpecificGroupOrUserTool(),
-    new SendDiceTool(),
-    new QueryGenshinTool(),
-    new SetTitleTool(),
-    new GithubAPITool()
-  ]
-  // todo 3.0再重构tool的插拔和管理
-  let /** @type{AbstractTool[]} **/ tools = [
-    new SendAvatarTool(),
-    new SendDiceTool(),
-    new SendMessageToSpecificGroupOrUserTool(),
-    // new EditCardTool(),
-    new QueryStarRailTool(),
-    new QueryGenshinTool(),
-    new SendMusicTool(),
-    new SearchMusicTool(),
-    new ProcessPictureTool(),
-    new WebsiteTool(),
-    // new JinyanTool(),
-    // new KickOutTool(),
-    new WeatherTool(),
-    new SendPictureTool(),
-    // new SendAudioMessageTool(),
-    new APTool(),
-    // new HandleMessageMsgTool(),
-    serpTool,
-    new QueryUserinfoTool(),
-    new GithubAPITool()
-  ]
-  let systemAddition = ''
-  if (e.isGroup) {
-    let botInfo = await e.bot?.pickMember?.(e.group_id, getUin(e)) || await e.bot?.getGroupMemberInfo?.(e.group_id, getUin(e))
-    if (botInfo.role !== 'member') {
-      // 管理员才给这些工具
-      tools.push(...[new EditCardTool(), new JinyanTool(), new KickOutTool(), new HandleMessageMsgTool(), new SetTitleTool()])
-      // 用于撤回和加精的id
-      if (e.source?.seq) {
-        let source = (await e.group.getChatHistory(e.source?.seq, 1)).pop()
-        systemAddition += `\nthe last message is replying to ${source.message_id}"\n`
-      } else {
-        systemAddition += `\nthe last message id is ${e.message_id}. `
-      }
-    }
-  }
-  let promptAddition = ''
-  let img = await getImg(e)
-  if (img?.length > 0 && Config.extraUrl) {
-    // tools.push(new ImageCaptionTool())
-    // tools.push(new ProcessPictureTool())
-    promptAddition += `\nthe url of the picture(s) above: ${img.join(', ')}`
-  } else {
-    tools.push(new SerpImageTool())
-    tools.push(...[new SearchVideoTool(),
-      new SendVideoTool()])
-  }
-  let funcMap = {}
-  let fullFuncMap = {}
-  tools.forEach(tool => {
-    funcMap[tool.name] = {
-      exec: tool.func,
-      function: tool.function(),
-      tool
-    }
-  })
-  fullTools.forEach(tool => {
-    fullFuncMap[tool.name] = {
-      exec: tool.func,
-      function: tool.function(),
-      tool
-    }
-  })
-  return {
-    funcMap,
-    fullFuncMap,
-    systemAddition,
-    promptAddition
   }
 }
 

@@ -5,11 +5,6 @@
     "view": [
       {
         "type": "check",
-        "label": "图片识别OCR",
-        "data": "imgOcr"
-      },
-      {
-        "type": "check",
         "label": "允许其他模式",
         "data": "allowOtherMode"
       },
@@ -109,33 +104,6 @@
           {
             "label": "浏览器",
             "value": "browser"
-          }
-        ]
-      },
-      {
-        "type": "password",
-        "label": "高德APIKey",
-        "placeholder": "用于查询天气",
-        "data": "amapKey"
-      },
-      {
-        "type": "url",
-        "label": "Azure search key",
-        "placeholder": "https://www.microsoft.com/en-us/bing/apis/bing-web-search-api",
-        "data": "azSerpKey"
-      },
-      {
-        "type": "select",
-        "label": "搜索来源",
-        "data": "serpSource",
-        "items": [
-          {
-            "label": "Azure",
-            "value": "azure"
-          },
-          {
-            "label": "ikechan8370",
-            "value": "ikechan8370"
           }
         ]
       },
@@ -476,11 +444,6 @@
                 "type": "check",
                 "label": "强制使用OpenAI反代",
                 "data": "openAiForceUseReverse"
-              },
-              {
-                "type": "check",
-                "label": "智能模式",
-                "data": "smartMode"
               },
               {
                 "type": "password",

@@ -10,8 +10,6 @@ import {
   formatDate2,
   generateAudio,
   getDefaultReplySetting,
-  getImageOcrText,
-  getImg,
   getUin,
   getUserData,
   getUserReplySetting,
@@ -599,17 +597,6 @@ export class chatgpt extends plugin {
     }
     let userSetting = await getUserReplySetting(this.e)
     let useTTS = !!userSetting.useTTS
-    const isImg = await getImg(e)
-    if (Config.imgOcr && !!isImg) {
-      let imgOcrText = await getImageOcrText(e)
-      if (imgOcrText) {
-        prompt = prompt + '"'
-        for (let imgOcrTextKey in imgOcrText) {
-          prompt += imgOcrText[imgOcrTextKey]
-        }
-        prompt = prompt + ' "'
-      }
-    }
     // 检索是否有屏蔽词
     const promtBlockWord = Config.promptBlockWords.find(word => prompt.toLowerCase().includes(word.toLowerCase()))
     if (promtBlockWord) {

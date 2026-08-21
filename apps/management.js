@@ -295,11 +295,6 @@ export class ChatgptManagement extends plugin {
           permission: 'master'
         },
         {
-          reg: '^#chatgpt(开启|关闭)智能模式$',
-          fnc: 'switchSmartMode',
-          permission: 'master'
-        },
-        {
           reg: '^#chatgpt模型列表$',
           fnc: 'viewAPIModel'
         },
@@ -1669,24 +1664,6 @@ azure语音：Azure 语音是微软 Azure 平台提供的一项语音服务，�
     this.finish('doImportConfig')
   }
 
-  async switchSmartMode (e) {
-    if (e.msg.includes('开启')) {
-      if (Config.smartMode) {
-        await this.reply('已经开启了')
-        return
-      }
-      Config.smartMode = true
-      await this.reply('好的，已经打开智能模式，注意API额度哦。配合开启读取群聊上下文效果更佳！')
-    } else {
-      if (!Config.smartMode) {
-        await this.reply('已经是关闭得了')
-        return
-      }
-      Config.smartMode = false
-      await this.reply('好的，已经关闭智能模式')
-    }
-  }
-
   async viewAPIModel (e) {
     const contents = [
       '仅列出部分模型以供参考',
@@ -1813,7 +1790,6 @@ azure语音：Azure 语音是微软 Azure 平台提供的一项语音服务，�
     config.push(`\n当前开启API流式输出：${Config.apiStream}`)
     config.push(`\n当前开启BYM模式：${Config.enableBYM}`)
     config.push(`\n当前BYM模式：${Config.bymMode}`)
-    config.push(`\n当前智能模式：${Config.smartMode}`)
     if (e.isPrivate) {
       config.push(`\n当前APIKey：${Config.apiKey}`)
       config.push(`\n当前API反代：${Config.openAiBaseUrl}`)

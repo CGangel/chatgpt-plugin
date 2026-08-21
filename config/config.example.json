@@ -7,7 +7,6 @@
     "屏蔽词1",
     "屏蔽词b"
   ],
-  "imgOcr": true,
   "defaultUsePicture": false,
   "defaultUseTTS": false,
   "defaultTTSRole": "纳西妲",
@@ -103,9 +102,5 @@
   "enhanceAzureTTSEmotion": false,
   "autoJapanese": false,
   "enableGenerateContents": false,
-  "amapKey": "",
-  "azSerpKey": "",
-  "serpSource": "ikechan8370",
-  "extraUrl": "https://cpe.ikechan8370.com",
-  "smartMode": false
+  "extraUrl": "https://cpe.ikechan8370.com"
 }

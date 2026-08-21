@@ -76,12 +76,6 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
-          field: 'enableToolPrivateSend',
-          label: '允许智能模式私聊',
-          bottomHelpMessage: '是否允许智能模式下发起临时对话骚扰其他群友。默认开启，如果怕Bot乱骚扰其他人可以关闭。主人不受影响。',
-          component: 'Switch'
-        },
-        {
           field: 'translateSource',
           label: '翻译来源',
           bottomHelpMessage: '#gpt翻译使用的AI来源',
@@ -150,12 +144,6 @@ export function supportGuoba() {
           label: 'max token',
           bottomHelpMessage: '默认4096',
           component: 'InputNumber'
-        },
-        {
-          field: 'smartMode',
-          label: '智能模式',
-          bottomHelpMessage: '仅建议gpt-4-32k和gpt-3.5-turbo-16k-0613开启，gpt-4-0613也可。开启后机器人可以群管、收发图片、发视频发音乐、联网搜索等。注意较费token。配合开启读取群聊上下文效果更佳',
-          component: 'Switch'
         },
         {
           field: 'forwardReasoning',
@@ -587,26 +575,6 @@ export function supportGuoba() {
           component: 'Input'
         },
         {
-          field: 'geminiForceToolKeywords',
-          label: 'gemini强制工具关键词',
-          bottomHelpMessage: 'gemini强制工具关键词，包含这里关键词的问题一定会调用工具。',
-          component: 'GTags',
-          componentProps: {
-            placeholder: '请输入强制工具关键词',
-            allowAdd: true,
-            allowDel: true,
-            showPrompt: true,
-            promptProps: {
-              content: '添加新的强制工具关键词',
-              okText: '添加',
-              rules: [
-                { required: true, message: '强制工具关键词不能为空' }
-              ]
-            },
-            valueParser: (value) => value.split(',') || []
-          }
-        },
-        {
           label: '以下为一些杂项配置。',
           component: 'Divider'
         },
@@ -637,12 +605,6 @@ export function supportGuoba() {
           label: '对话黑名单',
           bottomHelpMessage: '参考白名单设置规则。',
           component: 'Input'
-        },
-        {
-          field: 'imgOcr',
-          label: '图片识别',
-          bottomHelpMessage: '是否识别消息中图片的文字内容，需要同时包含图片和消息才生效',
-          component: 'Switch'
         },
         {
           field: 'enablePrivateChat',
@@ -1119,39 +1081,9 @@ export function supportGuoba() {
           component: 'Input'
         },
         {
-          field: 'amapKey',
-          label: '高德APIKey',
-          bottomHelpMessage: '用于查询天气',
-          component: 'Input'
-        },
-        {
-          field: 'azSerpKey',
-          label: 'Azure search key',
-          bottomHelpMessage: 'https://www.microsoft.com/en-us/bing/apis/bing-web-search-api',
-          component: 'Input'
-        },
-        {
-          field: 'serpSource',
-          label: '搜索来源，azure需填写key，ikechan8370为作者自备源',
-          component: 'Select',
-          componentProps: {
-            options: [
-              { label: 'Azure', value: 'azure' },
-              { label: 'ikechan8370', value: 'ikechan8370' }
-              // { label: '数据', value: 'buffer' }
-            ]
-          }
-        },
-        {
           field: 'extraUrl',
           label: '额外工具url',
           bottomHelpMessage: '（测试期间提供一个公益接口，一段时间后撤掉）参考搭建：https://github.com/ikechan8370/chatgpt-plugin-extras',
-          component: 'Input'
-        },
-        {
-          field: 'githubAPIKey',
-          label: 'github Access Token',
-          bottomHelpMessage: '去https://github.com/settings/personal-access-tokens生成。用于提高AI调用github工具的Rate Limit',
           component: 'Input'
         }
       ],
