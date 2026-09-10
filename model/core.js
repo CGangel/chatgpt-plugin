@@ -251,8 +251,7 @@ class Core {
           stream: false,
           parentMessageId: conversation.parentMessageId,
           conversationId: conversation.conversationId,
-          system: opt.system.claude,
-          max_tokens: Config.apiMaxToken
+          system: opt.system.claude
         }
         const claudeThinkingBudget = getClaudeThinkingBudget()
         if (claudeThinkingBudget >= 1024) {
@@ -582,6 +581,8 @@ class Core {
       let promptPrefix = `You are ${Config.assistantLabel} ${useCast?.api || opt.system.api || defaultPropmtPrefix}
         Current date: ${currentDate}`
       let maxModelTokens = getMaxModelTokens(completionParams.model)
+      // 仅用于内部估算上下文预算(maxModelTokens - maxResponseTokens)，不再作为max_completion_tokens发送给接口
+      const maxResponseTokens = Math.max(1, Math.min(4096, maxModelTokens - 1024))
       // let system = promptPrefix
       let system = await handleSystem(e, promptPrefix, opt.settings)
       if (Config.enableChatSuno) {
@@ -599,7 +600,7 @@ class Core {
         assistantLabel: Config.assistantLabel,
         fetch: newFetch,
         maxModelTokens,
-        maxResponseTokens: Config.apiMaxToken
+        maxResponseTokens
       }
       let openAIAccessible = (Config.proxy || !(await isCN())) // 配了代理或者服务器在国外，默认认为不需要反代
       if (opts.apiBaseUrl !== defaultOpenAIAPI && openAIAccessible && !Config.openAiForceUseReverse) {

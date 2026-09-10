@@ -140,12 +140,6 @@ export function supportGuoba() {
           component: 'Input'
         },
         {
-          field: 'apiMaxToken',
-          label: 'max token',
-          bottomHelpMessage: '默认4096',
-          component: 'InputNumber'
-        },
-        {
           field: 'apiThinkingEffort',
           label: '思考强度',
           bottomHelpMessage: 'API模式思考强度，取值为供应商原文，以reasoning_effort发送。OpenAI原生：none/low/medium/high/xhigh/max；DeepSeek原生：none/low/high/max（选择medium/xhigh时自动映射为high）。默认(空)不发送思考参数。仅推理模型支持',
@@ -414,11 +408,6 @@ export function supportGuoba() {
               { label: 'budget_tokens 32768', value: '32768' }
             ]
           }
-        },
-        {
-          field: 'claudeApiMaxToken',
-          label: 'claude 最大回复token数',
-          component: 'InputNumber'
         },
         {
           field: 'claudeApiTemperature',

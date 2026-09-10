@@ -224,7 +224,6 @@ const defaultConfig = {
 
   claudeApiKey: '',
   claudeApiBaseUrl: 'http://claude-api.ikechan8370.com',
-  claudeApiMaxToken: 1024,
   claudeApiTemperature: 0.8,
   claudeApiModel: '', // claude-3-opus-20240229 claude-3-sonnet-20240229
   claudeSystemPrompt: '', // claude api 设定
@@ -266,7 +265,6 @@ const defaultConfig = {
   bingAiOid: '',
   _2captchaKey: '',
   bingReasoning: false, // 是否深度思考
-  apiMaxToken: 4096,
   version: 'v2.8.4'
 }
 const _path = process.cwd()

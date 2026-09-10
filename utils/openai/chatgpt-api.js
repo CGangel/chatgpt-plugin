@@ -239,7 +239,7 @@ var ChatGPTAPI = /** @class */ (function () {
                                             'Content-Type': 'application/json',
                                             Authorization: "Bearer ".concat(this._apiKey)
                                         };
-                                        body = __assign(__assign(__assign({ max_completion_tokens: maxTokens }, this._completionParams), completionParams), { messages: messages, stream: stream });
+                                        body = __assign(__assign(__assign({}, this._completionParams), completionParams), { messages: messages, stream: stream });
                                         if (this._debug) {
                                             console.log(JSON.stringify(body));
                                         }
