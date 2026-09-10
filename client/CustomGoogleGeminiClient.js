@@ -42,36 +42,21 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
     super(props)
     this.model = props.model
     this.baseUrl = normalizeBaseUrl(props.baseUrl)
-    this.supportFunction = true
     this.debug = props.debug
   }
 
 
-  async sendMessage (text, opt = {}, retryTime = 3) {
+  async sendMessage (text, opt = {}) {
     let history = await this.getHistory(opt.parentMessageId)
     let systemMessage = opt.system
     const idThis = crypto.randomUUID()
     const idModel = crypto.randomUUID()
-    if (opt.functionResponse && !Array.isArray(opt.functionResponse)) {
-      opt.functionResponse = [opt.functionResponse]
+    const thisMessage = {
+      role: 'user',
+      parts: text ? [{ text }] : [],
+      id: idThis,
+      parentMessageId: opt.parentMessageId || undefined
     }
-    const thisMessage = opt.functionResponse?.length > 0
-      ? {
-          role: 'user',
-          parts: opt.functionResponse.map(i => {
-            return {
-              functionResponse: i
-            }
-          }),
-          id: idThis,
-          parentMessageId: opt.parentMessageId || undefined
-        }
-      : {
-          role: 'user',
-          parts: text ? [{ text }] : [],
-          id: idThis,
-          parentMessageId: opt.parentMessageId || undefined
-        }
     if (opt.image) {
       thisMessage.parts.push({
         inline_data: {
@@ -118,17 +103,6 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       if (thinkingConfig) {
         body.generationConfig.thinkingConfig = thinkingConfig
       }
-    }
-    if (this.tools?.length > 0) {
-      body.tools.push({ function_declarations: this.tools.map(tool => tool.function()) })
-      let mode = opt.toolMode || 'AUTO'
-      const lastFuncName = (/** @type {FunctionResponse[] | undefined}**/ opt.functionResponse)?.map(rsp => rsp.name)
-      const mustSendNextTurn = ['searchImage', 'searchMusic', 'searchVideo']
-      if (lastFuncName && lastFuncName?.find(name => mustSendNextTurn.includes(name))) {
-        mode = 'ANY'
-      }
-      delete opt.toolMode
-      body.tool_config = { function_calling_config: { mode } }
     }
     if (opt.search) {
       body.tools.push({ google_search: {} })
@@ -201,53 +175,6 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
     }
     responseContent = response.candidates[0].content
     groundingMetadata = response.candidates[0].groundingMetadata
-    if (response.candidates[0].finishReason === 'MALFORMED_FUNCTION_CALL' && retryTime > 0) {
-      logger.warn('Encountered MALFORMED_FUNCTION_CALL, retrying.')
-      return this.sendMessage(text, opt, retryTime - 1)
-    }
-
-    // --- 后续通用处理逻辑 ---
-    if (responseContent.parts.filter(i => i.functionCall).length > 0) {
-      // functionCall
-      const functionCall = responseContent.parts.filter(i => i.functionCall).map(i => i.functionCall)
-      const text = responseContent.parts.find(i => i.text)?.text
-      if (text && text.trim()) {
-        logger.info('send message: ' + text.trim())
-        opt.replyPureTextCallback && await opt.replyPureTextCallback(text.trim())
-      }
-      let /** @type {FunctionResponse[]} **/ fcResults = []
-      for (let fc of functionCall) {
-        logger.info(`Executing function call: ${JSON.stringify(fc)}`)
-        const funcName = fc.name
-        let chosenTool = this.tools.find(t => t.name === funcName)
-        let functionResponse = { name: funcName, response: { name: funcName, content: null } }
-        if (!chosenTool) {
-          functionResponse.response.content = { error: `Function ${funcName} doesn't exist` }
-        } else {
-          try {
-            let isAdmin = ['admin', 'owner'].includes(this.e.sender.role) || (this.e.group?.is_admin && this.e.isMaster)
-            let isOwner = ['owner'].includes(this.e.sender.role) || (this.e.group?.is_owner && this.e.isMaster)
-            let args = Object.assign(fc.args, { isAdmin, isOwner, sender: this.e.sender.user_id, mode: 'gemini' })
-            functionResponse.response.content = await chosenTool.func(args, this.e)
-            if (this.debug) {
-              logger.info(`Function result: ${JSON.stringify(functionResponse.response.content)}`)
-            }
-          } catch (err) {
-            logger.error(err)
-            functionResponse.response.content = { error: `Function execute error: ${err.message}` }
-          }
-        }
-        fcResults.push(functionResponse)
-      }
-      let responseOpt = _.cloneDeep(opt)
-      responseOpt.parentMessageId = idModel
-      responseOpt.functionResponse = fcResults
-      await this.upsertMessage(thisMessage)
-      responseContent = handleSearchResponse(responseContent).responseContent
-      const respMessage = Object.assign(responseContent, { id: idModel, parentMessageId: idThis })
-      await this.upsertMessage(respMessage)
-      return await this.sendMessage('', responseOpt)
-    }
     if (responseContent) {
       await this.upsertMessage(thisMessage)
       const respMessage = Object.assign(responseContent, { id: idModel, parentMessageId: idThis })

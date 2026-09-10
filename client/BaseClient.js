@@ -12,12 +12,6 @@ export class BaseClient {
    * @param props required fields: e, getMessageById, upsertMessage
    */
   constructor (props = {}) {
-    this.supportFunction = false
-    this.maxToken = 4096
-    /**
-     * @type {Array<AbstractTool>}
-     */
-    this.tools = []
     const {
       e, getMessageById, upsertMessage, deleteMessageById, userId
     } = props
@@ -90,30 +84,5 @@ export class BaseClient {
    */
   async destroyHistory (conversationId, opt = {}) {
     throw new Error('not implemented in abstract client')
-  }
-
-  /**
-   * 增加tools
-   * @param {[AbstractTool]} tools
-   */
-  addTools (tools) {
-    if (!this.isSupportFunction) {
-      throw new Error('function not supported')
-    }
-    if (!this.tools) {
-      this.tools = []
-    }
-    this.tools.push(...tools)
-  }
-
-  getTools () {
-    if (!this.isSupportFunction) {
-      throw new Error('function not supported')
-    }
-    return this.tools || []
-  }
-
-  get isSupportFunction () {
-    return this.supportFunction
   }
 }

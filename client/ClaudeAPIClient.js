@@ -72,7 +72,6 @@ export class ClaudeAPIClient extends BaseClient {
       throw new Error('no claude API key')
     }
     this.baseUrl = props.baseUrl || BASEURL
-    this.supportFunction = false
     this.debug = props.debug
   }
 
@@ -100,7 +99,7 @@ export class ClaudeAPIClient extends BaseClient {
   /**
    *
    * @param text
-   * @param {{conversationId: string?, parentMessageId: string?, stream: boolean?, onProgress: function?, functionResponse: FunctionResponse?, system: string?, image: string?, model: string?}} opt
+   * @param {{conversationId: string?, parentMessageId: string?, stream: boolean?, onProgress: function?, system: string?, image: string?, model: string?}} opt
    * @returns {Promise<{conversationId: string?, parentMessageId: string, text: string, id: string}>}
    */
   async sendMessage (text, opt = {}) {

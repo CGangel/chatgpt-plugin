@@ -189,7 +189,7 @@ var ChatGPTAPI = /** @class */ (function () {
         if (opts === void 0) { opts = {}; }
         if (role === void 0) { role = 'user'; }
         return __awaiter(this, void 0, void 0, function () {
-            var parentMessageId, _a, messageId, timeoutMs, onProgress, _b, stream, completionParams, conversationId, abortSignal, abortController, message, latestQuestion, _c, messages, maxTokens, numTokens, result, responseP;
+            var parentMessageId, _a, messageId, timeoutMs, onProgress, _b, stream, completionParams, conversationId, abortSignal, abortController, message, latestQuestion, _c, messages, numTokens, result, responseP;
             var _this = this;
             return __generator(this, function (_d) {
                 switch (_d.label) {
@@ -215,8 +215,7 @@ var ChatGPTAPI = /** @class */ (function () {
                         latestQuestion = message;
                         return [4 /*yield*/, this._buildMessages(text, role, opts, completionParams)];
                     case 1:
-                        _c = _d.sent(), messages = _c.messages, maxTokens = _c.maxTokens, numTokens = _c.numTokens;
-                        console.log("maxTokens: ".concat(maxTokens, ", numTokens: ").concat(numTokens));
+                        _c = _d.sent(), messages = _c.messages, numTokens = _c.numTokens;
                         result = {
                             role: 'assistant',
                             id: uuidv4(),
@@ -460,7 +459,7 @@ var ChatGPTAPI = /** @class */ (function () {
     });
     ChatGPTAPI.prototype._buildMessages = function (text, role, opts, completionParams) {
         return __awaiter(this, void 0, void 0, function () {
-            var _a, systemMessage, parentMessageId, userLabel, assistantLabel, maxNumTokens, messages, systemMessageOffset, currentContent, nextMessages, functionToken, numTokens, prompt_1, nextNumTokensEstimate, _i, _b, m1, _c, isValidPrompt, parentMessage, parentMessageRole, maxTokens;
+            var _a, systemMessage, parentMessageId, userLabel, assistantLabel, maxNumTokens, messages, systemMessageOffset, currentContent, nextMessages, functionToken, numTokens, prompt_1, nextNumTokensEstimate, _i, _b, m1, _c, isValidPrompt, parentMessage, parentMessageRole;
             return __generator(this, function (_d) {
                 switch (_d.label) {
                     case 0:
@@ -562,8 +561,7 @@ var ChatGPTAPI = /** @class */ (function () {
                         if (true) return [3 /*break*/, 1];
                         _d.label = 9;
                     case 9:
-                        maxTokens = Math.max(1, Math.min(this._maxModelTokens - numTokens, this._maxResponseTokens));
-                        return [2 /*return*/, { messages: messages, maxTokens: maxTokens, numTokens: numTokens }];
+                        return [2 /*return*/, { messages: messages, numTokens: numTokens }];
                 }
             });
         });

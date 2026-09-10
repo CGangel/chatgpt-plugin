@@ -222,13 +222,12 @@ export class ChatGPTAPI {
 
         const latestQuestion = message
 
-        const { messages, maxTokens, numTokens } = await this._buildMessages(
+        const { messages, numTokens } = await this._buildMessages(
             text,
             role,
             opts,
             completionParams
         )
-        console.log(`maxTokens: ${maxTokens}, numTokens: ${numTokens}`)
         const result: types.ChatMessage & { conversation: openai.ChatCompletionRequestMessage[] } = {
             role: 'assistant',
             id: uuidv4(),
@@ -601,14 +600,7 @@ export class ChatGPTAPI {
             parentMessageId = parentMessage.parentMessageId
         } while (true)
 
-        // Use up to 4096 tokens (prompt + response), but try to leave 1000 tokens
-        // for the response.
-        const maxTokens = Math.max(
-            1,
-            Math.min(this._maxModelTokens - numTokens, this._maxResponseTokens)
-        )
-
-        return { messages, maxTokens, numTokens }
+        return { messages, numTokens }
     }
 
     protected async _getTokenCount(text: string) {

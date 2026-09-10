@@ -71,10 +71,6 @@ export class bym extends plugin {
           xh: system
         },
         settings: {
-          replyPureTextCallback: msg => {
-            msg = filterResponseChunk(msg)
-            msg && e.reply(msg)
-          },
           // 强制打开上下文，不然伪人笨死了
           enableGroupContext: true
         }

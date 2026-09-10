@@ -129,7 +129,7 @@ var QwenApi = /** @class */ (function () {
         if (opts === void 0) { opts = {}; }
         if (role === void 0) { role = 'user'; }
         return __awaiter(this, void 0, void 0, function () {
-            var parentMessageId, _a, messageId, timeoutMs, completionParams, conversationId, abortSignal, abortController, message, latestQuestion, parameters, _b, messages, maxTokens, numTokens, result, responseP;
+            var parentMessageId, _a, messageId, timeoutMs, completionParams, conversationId, abortSignal, abortController, message, latestQuestion, parameters, _b, messages, numTokens, result, responseP;
             var _this = this;
             return __generator(this, function (_c) {
                 switch (_c.label) {
@@ -154,8 +154,7 @@ var QwenApi = /** @class */ (function () {
                         completionParams.parameters = parameters;
                         return [4 /*yield*/, this._buildMessages(text, role, opts, completionParams)];
                     case 1:
-                        _b = _c.sent(), messages = _b.messages, maxTokens = _b.maxTokens, numTokens = _b.numTokens;
-                        console.log("maxTokens: ".concat(maxTokens, ", numTokens: ").concat(numTokens));
+                        _b = _c.sent(), messages = _b.messages, numTokens = _b.numTokens;
                         result = {
                             role: 'assistant',
                             id: uuidv4(),
@@ -276,7 +275,7 @@ var QwenApi = /** @class */ (function () {
     });
     QwenApi.prototype._buildMessages = function (text, role, opts, completionParams) {
         return __awaiter(this, void 0, void 0, function () {
-            var _a, systemMessage, parentMessageId, userLabel, assistantLabel, maxNumTokens, messages, systemMessageOffset, nextMessages, functionToken, numTokens, prompt_1, nextNumTokensEstimate, _i, nextMessages_1, m1, _b, isValidPrompt, parentMessage, parentMessageRole, maxTokens;
+            var _a, systemMessage, parentMessageId, userLabel, assistantLabel, maxNumTokens, messages, systemMessageOffset, nextMessages, functionToken, numTokens, prompt_1, nextNumTokensEstimate, _i, nextMessages_1, m1, _b, isValidPrompt, parentMessage, parentMessageRole;
             return __generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
@@ -368,8 +367,7 @@ var QwenApi = /** @class */ (function () {
                         if (true) return [3 /*break*/, 1];
                         _c.label = 9;
                     case 9:
-                        maxTokens = Math.max(1, Math.min(this._maxModelTokens - numTokens, this._maxResponseTokens));
-                        return [2 /*return*/, { messages: messages, maxTokens: maxTokens, numTokens: numTokens }];
+                        return [2 /*return*/, { messages: messages, numTokens: numTokens }];
                 }
             });
         });

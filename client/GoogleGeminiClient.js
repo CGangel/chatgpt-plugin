@@ -30,7 +30,6 @@ export class GoogleGeminiClient extends BaseClient {
     this._key = props.key
     this._client = new GoogleGenerativeAI(this._key)
     this.model = this._client.getGenerativeModel({ model: props.model })
-    this.supportFunction = false
   }
 
   async getHistory (parentMessageId, userId = this.userId, opt = {}) {
