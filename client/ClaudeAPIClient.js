@@ -155,6 +155,13 @@ export class ClaudeAPIClient extends BaseClient {
       messages,
       stream: false
     })
+    if (opt.thinking) {
+      body.thinking = opt.thinking
+      // 扩展思考要求max_tokens大于budget_tokens，不足时自动抬高
+      if (body.max_tokens <= opt.thinking.budget_tokens) {
+        body.max_tokens = opt.thinking.budget_tokens + 1024
+      }
+    }
     let url = `${this.baseUrl}/v1/messages`
     let result
     try {

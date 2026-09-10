@@ -304,6 +304,16 @@ export class ChatgptManagement extends plugin {
           permission: 'master'
         },
         {
+          reg: '^#chatgpt设置思考强度.*$',
+          fnc: 'setThinkingIntensity',
+          permission: 'master'
+        },
+        {
+          reg: '^#chatgpt设置思考格式.*$',
+          fnc: 'setThinkingFormat',
+          permission: 'master'
+        },
+        {
           reg: '^#chatgpt设置(API|api)反代$',
           fnc: 'setOpenAiBaseUrl',
           permission: 'master'
@@ -1699,6 +1709,42 @@ azure语音：Azure 语音是微软 Azure 平台提供的一项语音服务，�
     this.finish('saveAPIModel')
   }
 
+  async setThinkingIntensity (e) {
+    const msg = e.msg.replace(/^#chatgpt设置思考强度/, '').trim().toLowerCase()
+    const map = {
+      默认: 'default', default: 'default',
+      关: 'off', 关闭: 'off', off: 'off',
+      低: 'low', low: 'low',
+      中: 'medium', medium: 'medium',
+      高: 'high', high: 'high'
+    }
+    const intensity = map[msg]
+    if (!intensity) {
+      await this.reply('未识别的思考强度，可选：默认(default)/关闭(off)/低(low)/中(medium)/高(high)\n示例：#chatgpt设置思考强度 高', true)
+      return false
+    }
+    Config.thinkingIntensity = intensity
+    await this.reply(`思考强度已设置为 ${intensity}，重启后对API/Gemini/Qwen/GLM/Claude模式生效`, true)
+    return false
+  }
+
+  async setThinkingFormat (e) {
+    const msg = e.msg.replace(/^#chatgpt设置思考格式/, '').trim().toLowerCase()
+    const map = {
+      自动: 'auto', auto: 'auto',
+      openai: 'openai',
+      deepseek: 'deepseek'
+    }
+    const format = map[msg]
+    if (!format) {
+      await this.reply('未识别的思考格式，可选：自动(auto)/openai/deepseek\n示例：#chatgpt设置思考格式 deepseek', true)
+      return false
+    }
+    Config.thinkingFormat = format
+    await this.reply(`思考格式已设置为 ${format}`, true)
+    return false
+  }
+
   async setClaudeModel (e) {
     this.setContext('saveClaudeModel')
     await this.reply('请发送Claude模型，官方推荐模型：\nclaude-3-opus-20240229\nclaude-3-sonnet-20240229\nclaude-3-haiku-20240307', true)
@@ -1787,6 +1833,8 @@ azure语音：Azure 语音是微软 Azure 平台提供的一项语音服务，�
     let config = []
     config.push(`当前模式：${use}`)
     config.push(`\n当前API模型：${Config.model}`)
+    config.push(`\n当前思考强度：${Config.thinkingIntensity}`)
+    config.push(`\n当前思考格式：${Config.thinkingFormat}`)
     config.push(`\n当前开启API流式输出：${Config.apiStream}`)
     config.push(`\n当前开启BYM模式：${Config.enableBYM}`)
     config.push(`\n当前BYM模式：${Config.bymMode}`)

@@ -446,6 +446,52 @@
                 "data": "openAiForceUseReverse"
               },
               {
+                "type": "select",
+                "label": "思考强度",
+                "data": "thinkingIntensity",
+                "items": [
+                  {
+                    "label": "默认（不发送参数）",
+                    "value": "default"
+                  },
+                  {
+                    "label": "关闭",
+                    "value": "off"
+                  },
+                  {
+                    "label": "低",
+                    "value": "low"
+                  },
+                  {
+                    "label": "中",
+                    "value": "medium"
+                  },
+                  {
+                    "label": "高",
+                    "value": "high"
+                  }
+                ]
+              },
+              {
+                "type": "select",
+                "label": "思考参数格式",
+                "data": "thinkingFormat",
+                "items": [
+                  {
+                    "label": "自动（按地址识别）",
+                    "value": "auto"
+                  },
+                  {
+                    "label": "OpenAI",
+                    "value": "openai"
+                  },
+                  {
+                    "label": "DeepSeek",
+                    "value": "deepseek"
+                  }
+                ]
+              },
+              {
                 "type": "password",
                 "label": "OpenAI API Key",
                 "placeholder": "OpenAI的ApiKey，用于访问OpenAI的API接口",

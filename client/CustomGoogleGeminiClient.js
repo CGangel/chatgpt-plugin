@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import { GoogleGeminiClient } from './GoogleGeminiClient.js'
 import { newFetch } from '../utils/proxy.js'
+import { getThinkingIntensity, geminiThinkingConfig, reasoningEffortFor, resolveThinkingFormat } from '../utils/thinking.js'
 import _ from 'lodash'
 
 const BASEURL = 'https://generativelanguage.googleapis.com'
@@ -64,6 +65,7 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
 
   async sendMessage (text, opt = {}, retryTime = 3) {
     const isProxy = !isOfficialGeminiUrl(this.baseUrl)
+    const thinkingIntensity = getThinkingIntensity()
 
     let history = await this.getHistory(opt.parentMessageId)
     let systemMessage = opt.system
@@ -146,6 +148,11 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
           body.tool_choice = opt.toolMode === 'NONE' ? 'none' : 'auto'
         }
       }
+
+      // 5. 思考强度（OpenAI或DeepSeek取值风格，按baseUrl自动识别）
+      if (thinkingIntensity !== 'default') {
+        body.reasoning_effort = reasoningEffortFor(thinkingIntensity, resolveThinkingFormat(this.baseUrl))
+      }
     } else {
       // --- 原生 Gemini API 逻辑 ---
       url = buildGeminiGenerateContentUrl(this.baseUrl, this.model)
@@ -171,6 +178,10 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       }
       if (systemMessage) {
         body.system_instruction = { parts: { text: systemMessage } }
+      }
+      // 思考强度（谷歌原生格式：2.5系thinkingBudget，3系thinkingLevel）
+      if (thinkingIntensity !== 'default') {
+        body.generationConfig.thinkingConfig = geminiThinkingConfig(this.model, thinkingIntensity)
       }
       if (this.tools?.length > 0) {
         body.tools.push({ function_declarations: this.tools.map(tool => tool.function()) })

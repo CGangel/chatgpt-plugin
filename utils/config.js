@@ -27,6 +27,16 @@ const defaultConfig = {
   OpenAiPlatformRefreshToken: '',
   openAiForceUseReverse: false,
   apiStream: false,
+  /**
+   * 思考强度，全局生效。default不发思考参数保持供应商默认，off/low/medium/high按各供应商格式映射
+   * @type {'default' | 'off' | 'low' | 'medium' | 'high'}
+   */
+  thinkingIntensity: 'default',
+  /**
+   * 思考参数取值风格，仅影响API模式与gemini反代的OpenAI兼容请求。auto按baseUrl识别deepseek
+   * @type {'auto' | 'openai' | 'deepseek'}
+   */
+  thinkingFormat: 'auto',
   drawCD: 30,
   model: '',
   temperature: 0.8,

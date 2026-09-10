@@ -1,4 +1,5 @@
 import { Config, defaultOpenAIAPI } from '../utils/config.js'
+import { getThinkingIntensity, reasoningEffortFor, resolveThinkingFormat } from '../utils/thinking.js'
 import {
   extractContentFromFile,
   formatDate,
@@ -253,6 +254,11 @@ class Core {
           system: opt.system.claude,
           max_tokens: Config.apiMaxToken
         }
+        const thinkingIntensity = getThinkingIntensity()
+        if (thinkingIntensity !== 'default' && thinkingIntensity !== 'off') {
+          // claude不传thinking即为关闭，off无需处理
+          option.thinking = { type: 'enabled', budget_tokens: { low: 1024, medium: 4096, high: 16384 }[thinkingIntensity] }
+        }
         if (opt.settings.enableGroupContext && e.isGroup) {
           let chats = await getChatHistoryGroup(e, Config.groupContextLength)
           const namePlaceholder = '[name]'
@@ -414,6 +420,13 @@ class Core {
           result_format: 'message'
         }
       }
+      const thinkingIntensity = getThinkingIntensity()
+      if (thinkingIntensity !== 'default') {
+        completionParams.parameters.enable_thinking = thinkingIntensity !== 'off'
+        if (thinkingIntensity !== 'off') {
+          completionParams.parameters.thinking_budget = { low: 1024, medium: 8192, high: 32768 }[thinkingIntensity]
+        }
+      }
       if (Config.qwenModel) {
         completionParams.model = Config.qwenModel
       }
@@ -533,10 +546,11 @@ class Core {
         throw err
       }
     } else if (use === 'chatglm4') {
+      const thinkingIntensity = getThinkingIntensity()
       const client = new ChatGLM4Client({
         apiKey: Config.chatglmApiKey,
         model: Config.chatglmModel,
-        thinking: Config.chatglmThinking,
+        thinking: thinkingIntensity !== 'default' ? thinkingIntensity !== 'off' : Config.chatglmThinking,
         temperature: Config.chatglmTemperature,
         debug: Config.debug
       })
@@ -558,6 +572,10 @@ class Core {
       let completionParams = {}
       if (Config.model) {
         completionParams.model = Config.model
+      }
+      const thinkingIntensity = getThinkingIntensity()
+      if (thinkingIntensity !== 'default') {
+        completionParams.reasoning_effort = reasoningEffortFor(thinkingIntensity, resolveThinkingFormat(Config.openAiBaseUrl))
       }
       const currentDate = new Date().toISOString().split('T')[0]
       let promptPrefix = `You are ${Config.assistantLabel} ${useCast?.api || opt.system.api || defaultPropmtPrefix}

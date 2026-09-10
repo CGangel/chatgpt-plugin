@@ -102,5 +102,7 @@
   "enhanceAzureTTSEmotion": false,
   "autoJapanese": false,
   "enableGenerateContents": false,
+  "thinkingIntensity": "default",
+  "thinkingFormat": "auto",
   "extraUrl": "https://cpe.ikechan8370.com"
 }

@@ -40,6 +40,34 @@ export function supportGuoba() {
           }
         },
         {
+          field: 'thinkingIntensity',
+          label: '思考强度',
+          bottomHelpMessage: '全局思考(推理)强度，对API/Gemini/Qwen/GLM/Claude模式生效，按各供应商格式自动映射。默认(default)不发送思考参数保持供应商默认；关闭/低/中/高分别为off/low/medium/high。注：Gemini2.5系映射为思考预算(0/2048/8192/24576)，Gemini3系映射为low/high等级；DeepSeek映射为none/low/high/max；Claude关闭与默认等价；Bing模式不受影响',
+          component: 'Select',
+          componentProps: {
+            options: [
+              { label: '默认（不发送参数）', value: 'default' },
+              { label: '关闭', value: 'off' },
+              { label: '低', value: 'low' },
+              { label: '中', value: 'medium' },
+              { label: '高', value: 'high' }
+            ]
+          }
+        },
+        {
+          field: 'thinkingFormat',
+          label: '思考参数格式',
+          bottomHelpMessage: '仅影响API模式与Gemini反代的OpenAI兼容请求的reasoning_effort取值风格。自动(auto)按API地址识别：地址含deepseek则用DeepSeek取值(none/low/high/max)，否则用OpenAI取值(minimal/low/medium/high)',
+          component: 'Select',
+          componentProps: {
+            options: [
+              { label: '自动（按地址识别）', value: 'auto' },
+              { label: 'OpenAI', value: 'openai' },
+              { label: 'DeepSeek', value: 'deepseek' }
+            ]
+          }
+        },
+        {
           field: 'allowOtherMode',
           label: '允许其他模式',
           bottomHelpMessage: '开启后，则允许用户使用#chat1/#chat3/#chatglm/#bing等命令无视全局模式进行聊天',
