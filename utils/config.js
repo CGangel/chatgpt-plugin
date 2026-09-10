@@ -28,15 +28,23 @@ const defaultConfig = {
   openAiForceUseReverse: false,
   apiStream: false,
   /**
-   * 思考强度，全局生效。default不发思考参数保持供应商默认，off/low/medium/high按各供应商格式映射
-   * @type {'default' | 'off' | 'low' | 'medium' | 'high'}
+   * API(OpenAI兼容)模式思考强度，reasoning_effort供应商原生取值：none/low/medium/high/xhigh/max。
+   * 空串不发送思考参数；deepseek格式下medium/xhigh自动映射为high
+   * @type {'' | 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'}
    */
-  thinkingIntensity: 'default',
+  apiThinkingEffort: '',
   /**
-   * 思考参数取值风格，仅影响API模式与gemini反代的OpenAI兼容请求。auto按baseUrl识别deepseek
+   * API模式reasoning_effort取值风格。auto按baseUrl识别deepseek
    * @type {'auto' | 'openai' | 'deepseek'}
    */
-  thinkingFormat: 'auto',
+  apiThinkingFormat: 'auto',
+  /**
+   * API模式预设列表，每项：{name, baseUrl, apiKey, model, thinkingFormat, thinkingEffort, prompt(人设)}
+   * 使用 #chatgpt保存预设/#chatgpt切换预设/#chatgpt预设列表/#chatgpt删除预设 管理
+   */
+  apiPresets: [],
+  /** 当前启用的API预设名，空表示未使用预设 */
+  apiPreset: '',
   drawCD: 30,
   model: '',
   temperature: 0.8,
@@ -178,6 +186,11 @@ const defaultConfig = {
   qwenSeed: 0,
   qwenTemperature: 1,
   qwenEnableSearch: true,
+  /**
+   * 通义千问思考设置：off关闭思考、on开启(默认预算)、或thinking_budget数值(如8192)。空串不发送思考参数
+   * @type {'' | 'off' | 'on' | string}
+   */
+  qwenThinking: '',
   geminiKey: '',
   geminiModel: 'gemini-1.5-flash',
   geminiPrompt: 'You are Gemini. Your answer shouldn\'t be too verbose. Prefer to answer in Chinese.',
@@ -185,10 +198,23 @@ const defaultConfig = {
   geminiBaseUrl: 'https://gemini.ikechan8370.com',
   geminiTemperature: 0.9,
   geminiMaxOutputTokens: 2000,
+  /**
+   * Gemini思考档位（仅谷歌原生协议）：off关闭/low/high/dynamic动态。空串不发送思考参数。
+   * 3系映射thinkingLevel(low/high，off降级low)，2.5系映射thinkingBudget(0/2048/24576/-1)。
+   * OpenAI兼容端点请使用API模式
+   * @type {'' | 'off' | 'low' | 'high' | 'dynamic'}
+   */
+  geminiThinkingLevel: '',
 
   chatglmApiKey: '',
   chatglmModel: 'glm-4',
   chatglmThinking: false,
+  /**
+   * 智谱思考强度（仅glm-5.3/glm-5.3-flash及以上生效，思考强制启用）：low/high/max。
+   * 空串不发送reasoning_effort（模型默认max）；4.5~5.2沿用chatglmThinking开关
+   * @type {'' | 'low' | 'high' | 'max'}
+   */
+  chatglmThinkingEffort: '',
   chatglmTemperature: 0.8,
   chatglmPrompt: 'You are ChatGLM. Your answer shouldn\'t be too verbose. Prefer to answer in Chinese.',
   sunoSessToken: '',
@@ -202,6 +228,11 @@ const defaultConfig = {
   claudeApiTemperature: 0.8,
   claudeApiModel: '', // claude-3-opus-20240229 claude-3-sonnet-20240229
   claudeSystemPrompt: '', // claude api 设定
+  /**
+   * Claude思考预算budget_tokens（原生数字，最小1024）。空串不发送thinking参数（即关闭）
+   * @type {'' | string}
+   */
+  claudeThinkingBudget: '',
   translateSource: 'openai',
   enableMd: false, // 第三方md，非QQBot。需要适配器实现segment.markdown和segment.button方可使用，否则不建议开启，会造成各种错误
   enableToolbox: true, // 默认关闭工具箱节省占用和加速启动

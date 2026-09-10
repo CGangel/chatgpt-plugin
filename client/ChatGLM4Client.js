@@ -17,6 +17,7 @@ export class ChatGLM4Client extends BaseClient {
     this.model = props.model || 'glm-4'
     this.temperature = props.temperature ?? 0.8
     this.thinking = !!props.thinking
+    this.thinkingEffort = props.thinkingEffort || ''
     this.baseUrl = props.baseUrl || 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
     this.debug = props.debug
   }
@@ -69,9 +70,15 @@ export class ChatGLM4Client extends BaseClient {
       temperature: this.temperature
     }
 
-    // GLM-4.5, 4.7, 5, etc. support thinking
+    // GLM-5.3, 5.3-flash 及以上：思考强制启用，强度用顶层reasoning_effort(low/high/max)
+    // GLM-4.5 ~ 5.2：思考可选，用thinking.type(enabled/disabled)
     const modelNum = parseFloat(this.model.replace(/[^\d.]/g, ''))
-    if (modelNum >= 4.5 || this.model.includes('thinking')) {
+    if (modelNum >= 5.3) {
+      body.thinking = { type: 'enabled' }
+      if (this.thinkingEffort) {
+        body.reasoning_effort = this.thinkingEffort
+      }
+    } else if (modelNum >= 4.5 || this.model.includes('thinking')) {
       body.thinking = { type: this.thinking ? 'enabled' : 'disabled' }
     }
 

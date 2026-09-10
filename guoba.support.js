@@ -40,34 +40,6 @@ export function supportGuoba() {
           }
         },
         {
-          field: 'thinkingIntensity',
-          label: '思考强度',
-          bottomHelpMessage: '全局思考(推理)强度，对API/Gemini/Qwen/GLM/Claude模式生效，按各供应商格式自动映射。默认(default)不发送思考参数保持供应商默认；关闭/低/中/高分别为off/low/medium/high。注：Gemini2.5系映射为思考预算(0/2048/8192/24576)，Gemini3系映射为low/high等级；DeepSeek映射为none/low/high/max；Claude关闭与默认等价；Bing模式不受影响',
-          component: 'Select',
-          componentProps: {
-            options: [
-              { label: '默认（不发送参数）', value: 'default' },
-              { label: '关闭', value: 'off' },
-              { label: '低', value: 'low' },
-              { label: '中', value: 'medium' },
-              { label: '高', value: 'high' }
-            ]
-          }
-        },
-        {
-          field: 'thinkingFormat',
-          label: '思考参数格式',
-          bottomHelpMessage: '仅影响API模式与Gemini反代的OpenAI兼容请求的reasoning_effort取值风格。自动(auto)按API地址识别：地址含deepseek则用DeepSeek取值(none/low/high/max)，否则用OpenAI取值(minimal/low/medium/high)',
-          component: 'Select',
-          componentProps: {
-            options: [
-              { label: '自动（按地址识别）', value: 'auto' },
-              { label: 'OpenAI', value: 'openai' },
-              { label: 'DeepSeek', value: 'deepseek' }
-            ]
-          }
-        },
-        {
           field: 'allowOtherMode',
           label: '允许其他模式',
           bottomHelpMessage: '开启后，则允许用户使用#chat1/#chat3/#chatglm/#bing等命令无视全局模式进行聊天',
@@ -172,6 +144,36 @@ export function supportGuoba() {
           label: 'max token',
           bottomHelpMessage: '默认4096',
           component: 'InputNumber'
+        },
+        {
+          field: 'apiThinkingEffort',
+          label: '思考强度',
+          bottomHelpMessage: 'API模式思考强度，取值为供应商原文，以reasoning_effort发送。OpenAI原生：none/low/medium/high/xhigh/max；DeepSeek原生：none/low/high/max（选择medium/xhigh时自动映射为high）。默认(空)不发送思考参数。仅推理模型支持',
+          component: 'Select',
+          componentProps: {
+            options: [
+              { label: '默认（不发送参数）', value: '' },
+              { label: 'none（关闭思考）', value: 'none' },
+              { label: 'low', value: 'low' },
+              { label: 'medium', value: 'medium' },
+              { label: 'high', value: 'high' },
+              { label: 'xhigh', value: 'xhigh' },
+              { label: 'max', value: 'max' }
+            ]
+          }
+        },
+        {
+          field: 'apiThinkingFormat',
+          label: '思考参数格式',
+          bottomHelpMessage: 'reasoning_effort取值风格（两家取值集不同）。自动(auto)按API地址识别：地址含deepseek用DeepSeek取值(none/low/high/max，medium与xhigh映射为high)，否则用OpenAI取值(none/low/medium/high/xhigh/max直传)',
+          component: 'Select',
+          componentProps: {
+            options: [
+              { label: '自动（按地址识别）', value: 'auto' },
+              { label: 'OpenAI', value: 'openai' },
+              { label: 'DeepSeek', value: 'deepseek' }
+            ]
+          }
         },
         {
           field: 'forwardReasoning',
@@ -345,6 +347,20 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
+          field: 'chatglmThinkingEffort',
+          label: '思考强度',
+          bottomHelpMessage: '仅glm-5.3/glm-5.3-flash及以上生效（官方文档：思考强制启用，无法关闭）。取值供应商原文：low/high/max，以顶层reasoning_effort发送，默认(空)不发送（模型默认max）。glm-4.5~5.2请使用上方"深度思考"开关',
+          component: 'Select',
+          componentProps: {
+            options: [
+              { label: '默认（不发送，模型默认max）', value: '' },
+              { label: 'low', value: 'low' },
+              { label: 'high', value: 'high' },
+              { label: 'max', value: 'max' }
+            ]
+          }
+        },
+        {
           field: 'chatglmTemperature',
           label: '智谱 AI 温度',
           bottomHelpMessage: '控制输出的随机性，值越高越随机。建议 0.0 到 1.0 之间',
@@ -381,6 +397,23 @@ export function supportGuoba() {
           field: 'claudeApiBaseUrl',
           label: 'claude API 反代',
           component: 'Input'
+        },
+        {
+          field: 'claudeThinkingBudget',
+          label: '思考强度',
+          bottomHelpMessage: 'Claude原生参数budget_tokens（扩展思考预算，最小1024）。默认(空)不发送thinking参数（即关闭扩展思考）；选择数值开启并设置预算，最大回复token数会自动抬高。仅claude-3.7及以上支持',
+          component: 'Select',
+          componentProps: {
+            options: [
+              { label: '默认（不发送，关闭思考）', value: '' },
+              { label: 'budget_tokens 1024', value: '1024' },
+              { label: 'budget_tokens 2048', value: '2048' },
+              { label: 'budget_tokens 4096', value: '4096' },
+              { label: 'budget_tokens 8192', value: '8192' },
+              { label: 'budget_tokens 16384', value: '16384' },
+              { label: 'budget_tokens 32768', value: '32768' }
+            ]
+          }
         },
         {
           field: 'claudeApiMaxToken',
@@ -576,6 +609,24 @@ export function supportGuoba() {
           component: 'Switch'
         },
         {
+          field: 'qwenThinking',
+          label: '思考强度',
+          bottomHelpMessage: '通义千问原生参数：off发送enable_thinking=false；on发送enable_thinking=true(模型默认预算)；数值发送enable_thinking=true+thinking_budget=该数值。默认(空)不发送思考参数。仅qwen3及以上混合推理模型支持',
+          component: 'Select',
+          componentProps: {
+            options: [
+              { label: '默认（不发送参数）', value: '' },
+              { label: 'off（关闭思考）', value: 'off' },
+              { label: 'on（开启，默认预算）', value: 'on' },
+              { label: 'thinking_budget 1024', value: '1024' },
+              { label: 'thinking_budget 4096', value: '4096' },
+              { label: 'thinking_budget 8192', value: '8192' },
+              { label: 'thinking_budget 16384', value: '16384' },
+              { label: 'thinking_budget 32768', value: '32768' }
+            ]
+          }
+        },
+        {
           label: '以下为Gemini方式的配置',
           component: 'Divider'
         },
@@ -590,6 +641,21 @@ export function supportGuoba() {
           label: '模型',
           bottomHelpMessage: '目前仅支持gemini-pro',
           component: 'Input'
+        },
+        {
+          field: 'geminiThinkingLevel',
+          label: '思考强度',
+          bottomHelpMessage: '谷歌原生格式（gemini模式仅支持谷歌原生协议，OpenAI兼容端点请使用API模式）。gemini-3系映射thinkingLevel(low/high，off降级为low，Pro系列无法完全关闭)；gemini-2.5系映射thinkingBudget(off→0关闭/low→2048/high→24576/dynamic→-1动态)。默认(空)不发送',
+          component: 'Select',
+          componentProps: {
+            options: [
+              { label: '默认（不发送参数）', value: '' },
+              { label: 'off（关闭思考）', value: 'off' },
+              { label: 'low', value: 'low' },
+              { label: 'high', value: 'high' },
+              { label: 'dynamic（动态预算）', value: 'dynamic' }
+            ]
+          }
         },
         {
           field: 'geminiPrompt',

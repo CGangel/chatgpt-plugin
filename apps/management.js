@@ -314,6 +314,26 @@ export class ChatgptManagement extends plugin {
           permission: 'master'
         },
         {
+          reg: '^#chatgpt预设列表$',
+          fnc: 'listApiPresets',
+          permission: 'master'
+        },
+        {
+          reg: '^#chatgpt(切换|使用)预设.*$',
+          fnc: 'switchApiPreset',
+          permission: 'master'
+        },
+        {
+          reg: '^#chatgpt(保存|新增)预设.*$',
+          fnc: 'saveApiPreset',
+          permission: 'master'
+        },
+        {
+          reg: '^#chatgpt删除预设.*$',
+          fnc: 'deleteApiPreset',
+          permission: 'master'
+        },
+        {
           reg: '^#chatgpt设置(API|api)反代$',
           fnc: 'setOpenAiBaseUrl',
           permission: 'master'
@@ -1710,38 +1730,154 @@ azure语音：Azure 语音是微软 Azure 平台提供的一项语音服务，�
   }
 
   async setThinkingIntensity (e) {
-    const msg = e.msg.replace(/^#chatgpt设置思考强度/, '').trim().toLowerCase()
-    const map = {
-      默认: 'default', default: 'default',
-      关: 'off', 关闭: 'off', off: 'off',
-      低: 'low', low: 'low',
-      中: 'medium', medium: 'medium',
-      高: 'high', high: 'high'
-    }
-    const intensity = map[msg]
-    if (!intensity) {
-      await this.reply('未识别的思考强度，可选：默认(default)/关闭(off)/低(low)/中(medium)/高(high)\n示例：#chatgpt设置思考强度 高', true)
+    const args = e.msg.replace(/^#chatgpt设置思考强度/, '').trim().split(/\s+/)
+    const modeArg = (args[0] || '').toLowerCase()
+    const value = (args[1] || '').toLowerCase()
+    const modeMap = { api: 'api', gemini: 'gemini', qwen: 'qwen', glm: 'glm', chatglm: 'glm', claude: 'claude', 全部: 'all', all: 'all' }
+    const mode = modeMap[modeArg]
+    if (!mode) {
+      await this.reply('用法：#chatgpt设置思考强度 <模式> <值>，模式：api/gemini/qwen/glm/claude/全部\n各模式取值为供应商原文：\nAPI：none/low/medium/high/xhigh/max（reasoning_effort，openai直传/deepseek自动归一化）\nGemini（仅谷歌原生协议）：off/low/high/dynamic\nQwen：off/on/或预算数值(如8192)\nGLM（仅glm-5.3及以上，思考强制启用）：low/high/max\nClaude：budget数值(≥1024，如4096)\n清除用"默认"，示例：#chatgpt设置思考强度 api xhigh', true)
       return false
     }
-    Config.thinkingIntensity = intensity
-    await this.reply(`思考强度已设置为 ${intensity}，重启后对API/Gemini/Qwen/GLM/Claude模式生效`, true)
+    const clear = !value || value === '默认' || value === 'default'
+    const applied = []
+    const applyFor = (m) => {
+      switch (m) {
+        case 'api':
+          if (clear || ['none', 'low', 'medium', 'high', 'xhigh', 'max'].includes(value)) {
+            Config.apiThinkingEffort = clear ? '' : value
+            applied.push(`API:${clear ? '默认' : value}`)
+          }
+          break
+        case 'gemini':
+          if (clear || ['off', 'low', 'high', 'dynamic'].includes(value)) {
+            Config.geminiThinkingLevel = clear ? '' : value
+            applied.push(`Gemini:${clear ? '默认' : value}`)
+          }
+          break
+        case 'qwen':
+          if (clear || value === 'off' || value === 'on' || /^\d+$/.test(value)) {
+            Config.qwenThinking = clear ? '' : value
+            applied.push(`Qwen:${clear ? '默认' : value}`)
+          }
+          break
+        case 'glm':
+          if (clear || ['low', 'high', 'max'].includes(value)) {
+            Config.chatglmThinkingEffort = clear ? '' : value
+            applied.push(`GLM:${clear ? '默认' : value}`)
+          }
+          break
+        case 'claude':
+          if (clear || (/^\d+$/.test(value) && parseInt(value) >= 1024)) {
+            Config.claudeThinkingBudget = clear ? '' : value
+            applied.push(`Claude:${clear ? '默认' : value}`)
+          }
+          break
+      }
+    }
+    if (mode === 'all') {
+      ['api', 'gemini', 'qwen', 'glm', 'claude'].forEach(applyFor)
+    } else {
+      applyFor(mode)
+    }
+    if (!applied.length) {
+      await this.reply(`模式${modeArg}不支持思考强度值 ${value}，请检查取值范围`, true)
+      return false
+    }
+    await this.reply(`思考强度设置成功：${applied.join('、')}`, true)
     return false
   }
 
   async setThinkingFormat (e) {
-    const msg = e.msg.replace(/^#chatgpt设置思考格式/, '').trim().toLowerCase()
+    const value = e.msg.replace(/^#chatgpt设置思考格式/, '').trim().toLowerCase()
     const map = {
       自动: 'auto', auto: 'auto',
       openai: 'openai',
       deepseek: 'deepseek'
     }
-    const format = map[msg]
+    const format = map[value]
     if (!format) {
-      await this.reply('未识别的思考格式，可选：自动(auto)/openai/deepseek\n示例：#chatgpt设置思考格式 deepseek', true)
+      await this.reply('用法：#chatgpt设置思考格式 <auto/openai/deepseek>\n仅API模式需要格式（OpenAI与DeepSeek的reasoning_effort取值集不同）\n示例：#chatgpt设置思考格式 deepseek', true)
       return false
     }
-    Config.thinkingFormat = format
-    await this.reply(`思考格式已设置为 ${format}`, true)
+    Config.apiThinkingFormat = format
+    await this.reply(`API思考格式已设置为 ${format}`, true)
+    return false
+  }
+
+  async listApiPresets (e) {
+    const presets = Config.apiPresets || []
+    if (!presets.length) {
+      await this.reply('当前没有API预设，使用 #chatgpt保存预设 <名称> 将当前API模式配置保存为预设', true)
+      return false
+    }
+    const lines = presets.map(p => `${p.name === Config.apiPreset ? '▶' : '·'} ${p.name}\n  模型：${p.model || '未设置'} | 地址：${p.baseUrl || '未设置'}\n  思考：${p.thinkingEffort || '默认'}（格式：${p.thinkingFormat || 'auto'}） | Key：${p.apiKey ? p.apiKey.replace(/(.{6}).*(.{4})/, '$1****$2') : '未设置'}\n  人设：${p.prompt ? (p.prompt.length > 30 ? p.prompt.slice(0, 30) + '…' : p.prompt) : '未设置'}`)
+    await this.reply(`共${presets.length}个API预设：\n\n${lines.join('\n\n')}`, true)
+    return false
+  }
+
+  async saveApiPreset (e) {
+    const name = e.msg.replace(/^#chatgpt(保存|新增)预设/, '').trim()
+    if (!name) {
+      await this.reply('用法：#chatgpt保存预设 <名称>\n将当前API模式配置（地址/Key/模型/思考强度/思考格式/人设）保存为预设', true)
+      return false
+    }
+    const preset = {
+      name,
+      baseUrl: Config.openAiBaseUrl,
+      apiKey: Config.apiKey,
+      model: Config.model,
+      thinkingFormat: Config.apiThinkingFormat,
+      thinkingEffort: Config.apiThinkingEffort,
+      prompt: Config.promptPrefixOverride
+    }
+    const presets = Config.apiPresets || []
+    const index = presets.findIndex(p => p.name === name)
+    if (index >= 0) {
+      presets[index] = preset
+    } else {
+      presets.push(preset)
+    }
+    Config.apiPresets = presets
+    Config.apiPreset = name
+    await this.reply(`预设「${name}」已保存并启用（模型：${preset.model || '未设置'}，思考：${preset.thinkingEffort || '默认'}）`, true)
+    return false
+  }
+
+  async switchApiPreset (e) {
+    const name = e.msg.replace(/^#chatgpt(切换|使用)预设/, '').trim()
+    const preset = (Config.apiPresets || []).find(p => p.name === name)
+    if (!name || !preset) {
+      await this.reply(`未找到预设「${name || ''}」，使用 #chatgpt预设列表 查看已有预设`, true)
+      return false
+    }
+    Config.openAiBaseUrl = preset.baseUrl
+    Config.apiKey = preset.apiKey
+    Config.model = preset.model
+    Config.apiThinkingFormat = preset.thinkingFormat || 'auto'
+    Config.apiThinkingEffort = preset.thinkingEffort || ''
+    if (preset.prompt) {
+      Config.promptPrefixOverride = preset.prompt
+    }
+    Config.apiPreset = preset.name
+    await this.reply(`已切换到预设「${preset.name}」\n模型：${preset.model || '未设置'} | 思考：${preset.thinkingEffort || '默认'} | 人设：${preset.prompt ? '已应用' : '未设置'}`, true)
+    return false
+  }
+
+  async deleteApiPreset (e) {
+    const name = e.msg.replace(/^#chatgpt删除预设/, '').trim()
+    const presets = Config.apiPresets || []
+    const index = presets.findIndex(p => p.name === name)
+    if (!name || index < 0) {
+      await this.reply(`未找到预设「${name || ''}」`, true)
+      return false
+    }
+    presets.splice(index, 1)
+    Config.apiPresets = presets
+    if (Config.apiPreset === name) {
+      Config.apiPreset = ''
+    }
+    await this.reply(`预设「${name}」已删除`, true)
     return false
   }
 
@@ -1833,8 +1969,12 @@ azure语音：Azure 语音是微软 Azure 平台提供的一项语音服务，�
     let config = []
     config.push(`当前模式：${use}`)
     config.push(`\n当前API模型：${Config.model}`)
-    config.push(`\n当前思考强度：${Config.thinkingIntensity}`)
-    config.push(`\n当前思考格式：${Config.thinkingFormat}`)
+    config.push(`\n当前API思考强度：${Config.apiThinkingEffort || '默认'}（格式：${Config.apiThinkingFormat}）`)
+    config.push(`\n当前API预设：${Config.apiPreset || '未启用'}（共${(Config.apiPresets || []).length}个）`)
+    config.push(`\n当前Gemini思考：${Config.geminiThinkingLevel || '默认'}（仅谷歌原生协议）`)
+    config.push(`\n当前Qwen思考：${Config.qwenThinking || '默认'}`)
+    config.push(`\n当前GLM思考：${Config.chatglmThinkingEffort || '默认'}（仅glm-5.3+生效）`)
+    config.push(`\n当前Claude思考预算：${Config.claudeThinkingBudget || '默认'}`)
     config.push(`\n当前开启API流式输出：${Config.apiStream}`)
     config.push(`\n当前开启BYM模式：${Config.enableBYM}`)
     config.push(`\n当前BYM模式：${Config.bymMode}`)

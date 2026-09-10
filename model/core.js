@@ -1,5 +1,5 @@
 import { Config, defaultOpenAIAPI } from '../utils/config.js'
-import { getThinkingIntensity, reasoningEffortFor, resolveThinkingFormat } from '../utils/thinking.js'
+import { getApiThinkingEffort, getQwenThinking, getChatglmThinkingEffort, getClaudeThinkingBudget, effortFor, resolveThinkingFormat } from '../utils/thinking.js'
 import {
   extractContentFromFile,
   formatDate,
@@ -254,10 +254,10 @@ class Core {
           system: opt.system.claude,
           max_tokens: Config.apiMaxToken
         }
-        const thinkingIntensity = getThinkingIntensity()
-        if (thinkingIntensity !== 'default' && thinkingIntensity !== 'off') {
-          // claude不传thinking即为关闭，off无需处理
-          option.thinking = { type: 'enabled', budget_tokens: { low: 1024, medium: 4096, high: 16384 }[thinkingIntensity] }
+        const claudeThinkingBudget = getClaudeThinkingBudget()
+        if (claudeThinkingBudget >= 1024) {
+          // claude不传thinking即为关闭，budget低于1024会被Anthropic拒绝，忽略
+          option.thinking = { type: 'enabled', budget_tokens: claudeThinkingBudget }
         }
         if (opt.settings.enableGroupContext && e.isGroup) {
           let chats = await getChatHistoryGroup(e, Config.groupContextLength)
@@ -420,11 +420,11 @@ class Core {
           result_format: 'message'
         }
       }
-      const thinkingIntensity = getThinkingIntensity()
-      if (thinkingIntensity !== 'default') {
-        completionParams.parameters.enable_thinking = thinkingIntensity !== 'off'
-        if (thinkingIntensity !== 'off') {
-          completionParams.parameters.thinking_budget = { low: 1024, medium: 8192, high: 32768 }[thinkingIntensity]
+      const qwenThinking = getQwenThinking()
+      if (qwenThinking) {
+        completionParams.parameters.enable_thinking = qwenThinking !== 'off'
+        if (/^\d+$/.test(qwenThinking)) {
+          completionParams.parameters.thinking_budget = parseInt(qwenThinking)
         }
       }
       if (Config.qwenModel) {
@@ -546,11 +546,12 @@ class Core {
         throw err
       }
     } else if (use === 'chatglm4') {
-      const thinkingIntensity = getThinkingIntensity()
+      const chatglmThinkingEffort = getChatglmThinkingEffort()
       const client = new ChatGLM4Client({
         apiKey: Config.chatglmApiKey,
         model: Config.chatglmModel,
-        thinking: thinkingIntensity !== 'default' ? thinkingIntensity !== 'off' : Config.chatglmThinking,
+        thinking: Config.chatglmThinking,
+        thinkingEffort: chatglmThinkingEffort,
         temperature: Config.chatglmTemperature,
         debug: Config.debug
       })
@@ -573,9 +574,9 @@ class Core {
       if (Config.model) {
         completionParams.model = Config.model
       }
-      const thinkingIntensity = getThinkingIntensity()
-      if (thinkingIntensity !== 'default') {
-        completionParams.reasoning_effort = reasoningEffortFor(thinkingIntensity, resolveThinkingFormat(Config.openAiBaseUrl))
+      const thinkingEffort = getApiThinkingEffort()
+      if (thinkingEffort) {
+        completionParams.reasoning_effort = effortFor(thinkingEffort, resolveThinkingFormat(Config.openAiBaseUrl))
       }
       const currentDate = new Date().toISOString().split('T')[0]
       let promptPrefix = `You are ${Config.assistantLabel} ${useCast?.api || opt.system.api || defaultPropmtPrefix}

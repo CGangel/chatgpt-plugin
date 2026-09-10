@@ -102,7 +102,13 @@
   "enhanceAzureTTSEmotion": false,
   "autoJapanese": false,
   "enableGenerateContents": false,
-  "thinkingIntensity": "default",
-  "thinkingFormat": "auto",
+  "apiThinkingEffort": "",
+  "apiThinkingFormat": "auto",
+  "apiPresets": [],
+  "apiPreset": "",
+  "geminiThinkingLevel": "",
+  "qwenThinking": "",
+  "chatglmThinkingEffort": "",
+  "claudeThinkingBudget": "",
   "extraUrl": "https://cpe.ikechan8370.com"
 }

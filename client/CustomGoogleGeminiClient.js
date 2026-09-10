@@ -1,29 +1,13 @@
 import crypto from 'crypto'
 import { GoogleGeminiClient } from './GoogleGeminiClient.js'
 import { newFetch } from '../utils/proxy.js'
-import { getThinkingIntensity, geminiThinkingConfig, reasoningEffortFor, resolveThinkingFormat } from '../utils/thinking.js'
+import { getGeminiThinkingLevel, geminiThinkingConfig } from '../utils/thinking.js'
 import _ from 'lodash'
 
 const BASEURL = 'https://generativelanguage.googleapis.com'
-const OFFICIAL_GEMINI_HOST = 'generativelanguage.googleapis.com'
 
 function normalizeBaseUrl (baseUrl) {
   return (baseUrl || BASEURL).replace(/\/+$/, '')
-}
-
-function isOfficialGeminiUrl (baseUrl) {
-  try {
-    return new URL(baseUrl).hostname === OFFICIAL_GEMINI_HOST
-  } catch (err) {
-    return normalizeBaseUrl(baseUrl).startsWith(BASEURL)
-  }
-}
-
-function buildOpenAIChatCompletionsUrl (baseUrl) {
-  const normalizedBaseUrl = normalizeBaseUrl(baseUrl)
-  return normalizedBaseUrl.endsWith('/v1')
-    ? `${normalizedBaseUrl}/chat/completions`
-    : `${normalizedBaseUrl}/v1/chat/completions`
 }
 
 function buildGeminiGenerateContentUrl (baseUrl, model) {
@@ -64,9 +48,6 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
 
 
   async sendMessage (text, opt = {}, retryTime = 3) {
-    const isProxy = !isOfficialGeminiUrl(this.baseUrl)
-    const thinkingIntensity = getThinkingIntensity()
-
     let history = await this.getHistory(opt.parentMessageId)
     let systemMessage = opt.system
     const idThis = crypto.randomUUID()
@@ -105,110 +86,64 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
     let body
     let headers
 
-    if (isProxy) {
-      // --- 代理 API 逻辑 (OpenAI 格式) ---
-      url = buildOpenAIChatCompletionsUrl(this.baseUrl)
-      headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this._key}`
-      }
-
-      const messages = []
-      // 1. 系统指令
-      if (systemMessage) {
-        messages.push({ role: 'system', content: systemMessage })
-      }
-
-      // 2. 转换历史记录和当前消息
-      for (const geminiMsg of history) {
-        const role = geminiMsg.role === 'model' ? 'assistant' : 'user'
-        const content = convertGeminiPartsToOpenAIContent(geminiMsg.parts)
-        if (content) { // 避免添加空内容的消息
-          messages.push({ role, content })
-        }
-      }
-
-      // 3. 构建请求体
-      body = {
-        model: this.model,
-        messages,
-        temperature: opt.temperature || 0.9,
-        max_tokens: opt.maxOutputTokens || 4096,
-        top_p: opt.topP || 0.95
-      }
-
-      // 4. 工具 (Function Calling)
-      if (this.tools?.length > 0 && !opt.image) {
-        body.tools = this.tools.map(tool => ({
-          type: 'function',
-          function: tool.function()
-        }))
-        // 映射 toolMode 到 tool_choice
-        if (opt.toolMode && opt.toolMode !== 'AUTO') {
-          body.tool_choice = opt.toolMode === 'NONE' ? 'none' : 'auto'
-        }
-      }
-
-      // 5. 思考强度（OpenAI或DeepSeek取值风格，按baseUrl自动识别）
-      if (thinkingIntensity !== 'default') {
-        body.reasoning_effort = reasoningEffortFor(thinkingIntensity, resolveThinkingFormat(this.baseUrl))
-      }
-    } else {
-      // --- 原生 Gemini API 逻辑 ---
-      url = buildGeminiGenerateContentUrl(this.baseUrl, this.model)
-      headers = {
-        'x-goog-api-key': this._key
-      }
-      body = {
-        contents: history,
-        safetySettings: [
-          { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.OFF },
-          { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.OFF },
-          { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.OFF },
-          { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.OFF },
-          { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.BLOCK_NONE }
-        ],
-        generationConfig: {
-          maxOutputTokens: opt.maxOutputTokens || 4096,
-          temperature: opt.temperature || 0.9,
-          topP: opt.topP || 0.95,
-          topK: opt.tokK || 16
-        },
-        tools: []
-      }
-      if (systemMessage) {
-        body.system_instruction = { parts: { text: systemMessage } }
-      }
-      // 思考强度（谷歌原生格式：2.5系thinkingBudget，3系thinkingLevel）
-      if (thinkingIntensity !== 'default') {
-        body.generationConfig.thinkingConfig = geminiThinkingConfig(this.model, thinkingIntensity)
-      }
-      if (this.tools?.length > 0) {
-        body.tools.push({ function_declarations: this.tools.map(tool => tool.function()) })
-        let mode = opt.toolMode || 'AUTO'
-        const lastFuncName = (/** @type {FunctionResponse[] | undefined}**/ opt.functionResponse)?.map(rsp => rsp.name)
-        const mustSendNextTurn = ['searchImage', 'searchMusic', 'searchVideo']
-        if (lastFuncName && lastFuncName?.find(name => mustSendNextTurn.includes(name))) {
-          mode = 'ANY'
-        }
-        delete opt.toolMode
-        body.tool_config = { function_calling_config: { mode } }
-      }
-      if (opt.search) {
-        body.tools.push({ google_search: {} })
-      }
-      if (opt.codeExecution) {
-        body.tools.push({ code_execution: {} })
-      }
-      if (opt.image) {
-        delete body.tools
-      }
-      body.contents.forEach(content => {
-        delete content.id
-        delete content.parentMessageId
-        delete content.conversationId
-      })
+    // --- 原生 Gemini API 逻辑（仅支持谷歌原生协议，OpenAI兼容端点请使用API模式） ---
+    url = buildGeminiGenerateContentUrl(this.baseUrl, this.model)
+    headers = {
+      'x-goog-api-key': this._key
     }
+    body = {
+      contents: history,
+      safetySettings: [
+        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.OFF },
+        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.OFF },
+        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.OFF },
+        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.OFF },
+        { category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY, threshold: HarmBlockThreshold.BLOCK_NONE }
+      ],
+      generationConfig: {
+        maxOutputTokens: opt.maxOutputTokens || 4096,
+        temperature: opt.temperature || 0.9,
+        topP: opt.topP || 0.95,
+        topK: opt.tokK || 16
+      },
+      tools: []
+    }
+    if (systemMessage) {
+      body.system_instruction = { parts: { text: systemMessage } }
+    }
+    // 思考强度（谷歌原生格式：3系thinkingLevel，2.5系thinkingBudget）
+    const thinkingLevel = getGeminiThinkingLevel()
+    if (thinkingLevel) {
+      const thinkingConfig = geminiThinkingConfig(this.model, thinkingLevel)
+      if (thinkingConfig) {
+        body.generationConfig.thinkingConfig = thinkingConfig
+      }
+    }
+    if (this.tools?.length > 0) {
+      body.tools.push({ function_declarations: this.tools.map(tool => tool.function()) })
+      let mode = opt.toolMode || 'AUTO'
+      const lastFuncName = (/** @type {FunctionResponse[] | undefined}**/ opt.functionResponse)?.map(rsp => rsp.name)
+      const mustSendNextTurn = ['searchImage', 'searchMusic', 'searchVideo']
+      if (lastFuncName && lastFuncName?.find(name => mustSendNextTurn.includes(name))) {
+        mode = 'ANY'
+      }
+      delete opt.toolMode
+      body.tool_config = { function_calling_config: { mode } }
+    }
+    if (opt.search) {
+      body.tools.push({ google_search: {} })
+    }
+    if (opt.codeExecution) {
+      body.tools.push({ code_execution: {} })
+    }
+    if (opt.image) {
+      delete body.tools
+    }
+    body.contents.forEach(content => {
+      delete content.id
+      delete content.parentMessageId
+      delete content.conversationId
+    })
 
     if (this.debug) {
       logger.debug(`Request Body to ${url}: ${JSON.stringify(body)}`)
@@ -247,73 +182,28 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       throw textErr
     }
 
-    if (isProxy) {
-      // --- 解析代理 (OpenAI 格式) 响应 ---
-      let response
-      try {
-        response = JSON.parse(rawText)
-      } catch (parseErr) {
-        logger.error(`[Gemini] 代理API响应JSON解析失败 - 原始响应: ${rawText}`)
-        throw new Error(`Gemini proxy returned non-JSON response: ${rawText.substring(0, 500)}`)
-      }
-      if (this.debug) {
-        console.log('Proxy Response:', JSON.stringify(response))
-      }
-      if (response.error) {
-        logger.error(`[Gemini] 代理API返回错误 - 完整响应: ${JSON.stringify(response)}`)
-        throw new Error(JSON.stringify(response.error))
-      }
-      if (!response.choices || response.choices.length === 0) {
-        logger.error(`[Gemini] 代理API无choices返回 - 完整响应: ${JSON.stringify(response)}`)
-        // 无内容回复，可在此处添加重试逻辑
-        throw new Error('Proxy API returned no choices.')
-      }
-      const message = response.choices[0].message
-      responseContent = {
-        role: 'model',
-        parts: []
-      }
-      if (message.content) {
-        responseContent.parts.push({ text: message.content })
-      }
-      if (message.tool_calls) {
-        for (const toolCall of message.tool_calls) {
-          try {
-            responseContent.parts.push({
-              functionCall: {
-                name: toolCall.function.name,
-                args: JSON.parse(toolCall.function.arguments)
-              }
-            })
-          } catch (e) {
-            logger.error(`Failed to parse tool call arguments from proxy: ${e}`)
-          }
-        }
-      }
-    } else {
-      // --- 解析原生 Gemini 响应 ---
-      /** @type {{candidates: Array<{content: Content, groundingMetadata: GroundingMetadata, finishReason: string}>}} */
-      let response
-      try {
-        response = JSON.parse(rawText)
-      } catch (parseErr) {
-        logger.error(`[Gemini] 原生API响应JSON解析失败 - 原始响应: ${rawText}`)
-        throw new Error(`Gemini native API returned non-JSON response: ${rawText.substring(0, 500)}`)
-      }
-      if (this.debug) {
-        console.log('Gemini Response:', JSON.stringify(response))
-      }
-      if (!response.candidates || response.candidates.length === 0) {
-        logger.error(`[Gemini] 原生API无candidates返回 - 完整响应: ${JSON.stringify(response)}`)
-        // 无内容回复，可在此处添加重试逻辑
-        throw new Error('Gemini API returned no candidates.')
-      }
-      responseContent = response.candidates[0].content
-      groundingMetadata = response.candidates[0].groundingMetadata
-      if (response.candidates[0].finishReason === 'MALFORMED_FUNCTION_CALL' && retryTime > 0) {
-        logger.warn('Encountered MALFORMED_FUNCTION_CALL, retrying.')
-        return this.sendMessage(text, opt, retryTime - 1)
-      }
+    // --- 解析原生 Gemini 响应 ---
+    /** @type {{candidates: Array<{content: Content, groundingMetadata: GroundingMetadata, finishReason: string}>}} */
+    let response
+    try {
+      response = JSON.parse(rawText)
+    } catch (parseErr) {
+      logger.error(`[Gemini] 原生API响应JSON解析失败 - 原始响应: ${rawText}`)
+      throw new Error(`Gemini native API returned non-JSON response: ${rawText.substring(0, 500)}`)
+    }
+    if (this.debug) {
+      console.log('Gemini Response:', JSON.stringify(response))
+    }
+    if (!response.candidates || response.candidates.length === 0) {
+      logger.error(`[Gemini] 原生API无candidates返回 - 完整响应: ${JSON.stringify(response)}`)
+      // 无内容回复，可在此处添加重试逻辑
+      throw new Error('Gemini API returned no candidates.')
+    }
+    responseContent = response.candidates[0].content
+    groundingMetadata = response.candidates[0].groundingMetadata
+    if (response.candidates[0].finishReason === 'MALFORMED_FUNCTION_CALL' && retryTime > 0) {
+      logger.warn('Encountered MALFORMED_FUNCTION_CALL, retrying.')
+      return this.sendMessage(text, opt, retryTime - 1)
     }
 
     // --- 后续通用处理逻辑 ---
@@ -384,59 +274,6 @@ export class CustomGoogleGeminiClient extends GoogleGeminiClient {
       parentMessageId: idModel, //  parentMessageId 应该返回模型消息的 id，下一轮基于此回复
       id: idModel
     }
-  }
-}
-
-/**
- * 将 Gemini 的 'parts' 数组转换为 OpenAI 的 'content' 格式。
- * 处理文本、多模态图像和函数响应。
- * @param {Array<object>} parts - 来自 Gemini 消息的 'parts' 数组。
- * @returns {string|Array<object>|null} - 用于 OpenAI 消息的 'content'。
- */
-function convertGeminiPartsToOpenAIContent (parts) {
-  if (!parts || parts.length === 0) {
-    return null
-  }
-
-  // 首先检查函数响应，因为它们是一种特殊的消息类型
-  const functionResponsePart = parts.find(p => p.functionResponse)
-  if (functionResponsePart) {
-    // 将函数响应表示为简单的文本字符串，供 LLM 理解。
-    // 这避免了如果代理不能完美处理 'tool' 角色的复杂性。
-    const funcResp = functionResponsePart.functionResponse
-    return `Result for function call ${funcResp.name}: ${JSON.stringify(funcResp.response.content)}`
-  }
-
-  let textParts = []
-  let imageParts = []
-
-  // 处理文本和图像
-  for (const part of parts) {
-    if (part.text) {
-      textParts.push(part.text)
-    }
-    if (part.inline_data && part.inline_data.data) {
-      imageParts.push({
-        type: 'image_url',
-        image_url: {
-          // 对于 OpenAI 格式，必须前缀 data URI scheme
-          url: `data:${part.inline_data.mime_type};base64,${part.inline_data.data}`
-        }
-      })
-    }
-  }
-
-  const combinedText = textParts.join('\n')
-
-  if (imageParts.length > 0) {
-    const contentArray = []
-    if (combinedText) {
-      contentArray.push({ type: 'text', text: combinedText })
-    }
-    contentArray.push(...imageParts)
-    return contentArray
-  } else {
-    return combinedText || null
   }
 }
 

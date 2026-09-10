@@ -448,34 +448,42 @@
               {
                 "type": "select",
                 "label": "思考强度",
-                "data": "thinkingIntensity",
+                "data": "apiThinkingEffort",
                 "items": [
                   {
                     "label": "默认（不发送参数）",
-                    "value": "default"
+                    "value": ""
                   },
                   {
-                    "label": "关闭",
-                    "value": "off"
+                    "label": "none（关闭思考）",
+                    "value": "none"
                   },
                   {
-                    "label": "低",
+                    "label": "low",
                     "value": "low"
                   },
                   {
-                    "label": "中",
+                    "label": "medium",
                     "value": "medium"
                   },
                   {
-                    "label": "高",
+                    "label": "high",
                     "value": "high"
+                  },
+                  {
+                    "label": "xhigh",
+                    "value": "xhigh"
+                  },
+                  {
+                    "label": "max",
+                    "value": "max"
                   }
                 ]
               },
               {
                 "type": "select",
                 "label": "思考参数格式",
-                "data": "thinkingFormat",
+                "data": "apiThinkingFormat",
                 "items": [
                   {
                     "label": "自动（按地址识别）",
@@ -881,6 +889,33 @@
                 "label": "Gemini反代",
                 "placeholder": "对https://generativelanguage.googleapis.com的反代",
                 "data": "geminiBaseUrl"
+              },
+              {
+                "type": "select",
+                "label": "思考强度",
+                "data": "geminiThinkingLevel",
+                "items": [
+                  {
+                    "label": "默认（不发送参数）",
+                    "value": ""
+                  },
+                  {
+                    "label": "off（关闭思考）",
+                    "value": "off"
+                  },
+                  {
+                    "label": "low",
+                    "value": "low"
+                  },
+                  {
+                    "label": "high",
+                    "value": "high"
+                  },
+                  {
+                    "label": "dynamic（动态预算）",
+                    "value": "dynamic"
+                  }
+                ]
               }
             ]
           },
@@ -936,6 +971,45 @@
                 "type": "check",
                 "label": "允许搜索",
                 "data": "qwenEnableSearch"
+              },
+              {
+                "type": "select",
+                "label": "思考强度",
+                "data": "qwenThinking",
+                "items": [
+                  {
+                    "label": "默认（不发送参数）",
+                    "value": ""
+                  },
+                  {
+                    "label": "off（关闭思考）",
+                    "value": "off"
+                  },
+                  {
+                    "label": "on（开启，默认预算）",
+                    "value": "on"
+                  },
+                  {
+                    "label": "thinking_budget 1024",
+                    "value": "1024"
+                  },
+                  {
+                    "label": "thinking_budget 4096",
+                    "value": "4096"
+                  },
+                  {
+                    "label": "thinking_budget 8192",
+                    "value": "8192"
+                  },
+                  {
+                    "label": "thinking_budget 16384",
+                    "value": "16384"
+                  },
+                  {
+                    "label": "thinking_budget 32768",
+                    "value": "32768"
+                  }
+                ]
               }
             ]
           },
